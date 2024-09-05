@@ -1,0 +1,25 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "zone": "407 - Oakland 1", "latitude": 40.441049698736876, "longitude": -79.960264278752518, "float_rate": 3.0 }, "geometry": { "type": "Point", "coordinates": [ -79.960264278752518, 40.441049698736876 ] } },
+{ "type": "Feature", "properties": { "zone": "323 - Douglas Phillips Lot", "latitude": 40.432617056862256, "longitude": -79.922537281579963, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.922537281579963, 40.432617056862256 ] } },
+{ "type": "Feature", "properties": { "zone": "413 - Squirrel Hill", "latitude": 40.433581368049765, "longitude": -79.92309870425791, "float_rate": 1.5 }, "geometry": { "type": "Point", "coordinates": [ -79.92309870425791, 40.433581368049765 ] } },
+{ "type": "Feature", "properties": { "zone": "321 - Beacon Bartlett Lot", "latitude": 40.435453694403037, "longitude": -79.923617310019822, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.923617310019822, 40.435453694403037 ] } },
+{ "type": "Feature", "properties": { "zone": "325 - JCC/Forbes Lot", "latitude": 40.437756155476599, "longitude": -79.923901042327884, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.923901042327884, 40.437756155476599 ] } },
+{ "type": "Feature", "properties": { "zone": "322 - Forbes Shady Lot", "latitude": 40.438602290037352, "longitude": -79.920121894069666, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.920121894069666, 40.438602290037352 ] } },
+{ "type": "Feature", "properties": { "zone": "324 - Forbes Murray Lot", "latitude": 40.438609122362699, "longitude": -79.922507232308064, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.922507232308064, 40.438609122362699 ] } },
+{ "type": "Feature", "properties": { "zone": "410 - Oakland 4", "latitude": 40.441215055581964, "longitude": -79.946678757667542, "float_rate": 2.3333333333333335 }, "geometry": { "type": "Point", "coordinates": [ -79.946678757667542, 40.441215055581964 ] } },
+{ "type": "Feature", "properties": { "zone": "414 - Mellon Park", "latitude": 40.45172469595348, "longitude": -79.919594841104498, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.919594841104498, 40.45172469595348 ] } },
+{ "type": "Feature", "properties": { "zone": "328 - Ivy Bellefonte Lot", "latitude": 40.45181388509701, "longitude": -79.933232609325415, "float_rate": 2.0 }, "geometry": { "type": "Point", "coordinates": [ -79.933232609325415, 40.45181388509701 ] } },
+{ "type": "Feature", "properties": { "zone": "411 - Shadyside", "latitude": 40.455178153650792, "longitude": -79.935230001237457, "float_rate": 1.5 }, "geometry": { "type": "Point", "coordinates": [ -79.935230001237457, 40.455178153650792 ] } },
+{ "type": "Feature", "properties": { "zone": "425 - Bakery Sq", "latitude": 40.456042800969982, "longitude": -79.916605710977819, "float_rate": 2.0 }, "geometry": { "type": "Point", "coordinates": [ -79.916605710977819, 40.456042800969982 ] } },
+{ "type": "Feature", "properties": { "zone": "412 - East Liberty", "latitude": 40.460784538400489, "longitude": -79.926651012254794, "float_rate": 1.5 }, "geometry": { "type": "Point", "coordinates": [ -79.926651012254794, 40.460784538400489 ] } },
+{ "type": "Feature", "properties": { "zone": "304 - Tamello Beatty Lot", "latitude": 40.46097078534487, "longitude": -79.927121205522525, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.927121205522525, 40.46097078534487 ] } },
+{ "type": "Feature", "properties": { "zone": "307 - Eva Beatty Lot", "latitude": 40.461651797420089, "longitude": -79.927785198164941, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.927785198164941, 40.461651797420089 ] } },
+{ "type": "Feature", "properties": { "zone": "302 - Sheridan Kirkwood Lot", "latitude": 40.46169199390453, "longitude": -79.922711968915323, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.922711968915323, 40.46169199390453 ] } },
+{ "type": "Feature", "properties": { "zone": "301 - Sheridan Harvard Lot", "latitude": 40.462595819498532, "longitude": -79.923175014715184, "float_rate": 1.0 }, "geometry": { "type": "Point", "coordinates": [ -79.923175014715184, 40.462595819498532 ] } },
+{ "type": "Feature", "properties": { "zone": "408 - Oakland 2", "latitude": 40.443752586583912, "longitude": -79.956504271153918, "float_rate": 3.0 }, "geometry": { "type": "Point", "coordinates": [ -79.956504271153918, 40.443752586583912 ] } },
+{ "type": "Feature", "properties": { "zone": "409 - Oakland 3", "latitude": 40.447243204548968, "longitude": -79.951439902198899, "float_rate": 3.0 }, "geometry": { "type": "Point", "coordinates": [ -79.951439902198899, 40.447243204548968 ] } }
+]
+}

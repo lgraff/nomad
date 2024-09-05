@@ -1,6 +1,8 @@
 # ignore select folder and files
 old_files/
 
+nomad/accessibility/
+
 project2-subsidy/
 
 scratch/

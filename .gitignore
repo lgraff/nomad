@@ -1,0 +1,18 @@
+# ignore select folder and files
+old_files/
+
+project2-subsidy/
+
+scratch/
+tests/
+
+optimize_copy.ipynb
+transit_accessibility.ipynb
+
+nomad/data/network/raw/*
+nomad/data/demographics/raw/*
+
+nomad/data/network/processed/headway_dynamic.csv
+
+!nomad/data/network/raw/.gitkeep
+!nomad/data/demographics/raw/.gitkeep

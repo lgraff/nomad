@@ -35,7 +35,7 @@ def build_graph(G_bike, study_area_path, station_filepath, lat_colname, long_col
         columns={id_colname: 'id'})
     # join depot nodes and connection edges to the bikeshare (biking) network
     gdf_bike_nodes = utils.create_gdf_nodes(G_bike)
-    G_bs = utils.add_depots_cnx_edges(gdf_bs_clip, gdf_bike_nodes, # ['ID', name_colname, 'pos', availability_colname], 
+    G_bs = utils.add_station_cnx_edges(gdf_bs_clip, gdf_bike_nodes, # ['ID', name_colname, 'pos', availability_colname], 
                                    'bsd', 'bs', 'bs', G_bs, 'both')   
     for n in G_bs.nodes:
         if n.startswith('bsd'):

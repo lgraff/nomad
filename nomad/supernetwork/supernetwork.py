@@ -70,7 +70,7 @@ class Supernetwork:
     def add_transfer_edges(self, W):
         '''See: Algorithm 1, Graff et al. (2024).'''
         # Generate scooter transfer data, assuming real data unavailable
-        sc_costs = utils.gen_data(self)
+        sc_costs = utils.generate_data(self)
     
         etype = 'transfer'
         trans_edges = {}
@@ -174,7 +174,7 @@ class Supernetwork:
         coord_matrix = self.coord_matrix  # twait nodes are not added to nid map *at this stage*. nor are the orgs
         
         # First generate all scooter data (assuming true data is unavailable)
-        sc_costs = utils.gen_data(self, od_cnx=True) 
+        sc_costs = utils.generate_data(self, od_cnx=True) 
         
         # Add the org connectors
         for i, o_coord in enumerate(list(org_coords)):   # o_coords is an n x 2 numpy array

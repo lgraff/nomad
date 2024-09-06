@@ -34,9 +34,9 @@ def build_graph(G_drive, study_area_path, carshare_station_path, parking_nodes_p
     # create df for driving nodes
     gdf_drive_nodes = utils.create_gdf_nodes(G_drive)
     # then connect each parking node to nearest driving intersection node
-    G_cs = utils.add_depots_cnx_edges(gdf_parking_nodes, gdf_drive_nodes, 'kz', 'z', 'zip', G_cs, 'to_depot')
+    G_cs = utils.add_station_cnx_edges(gdf_parking_nodes, gdf_drive_nodes, 'kz', 'z', 'zip', G_cs, 'to_depot')
     # also connect each station node to nearest driving intersection node
-    G_cs = utils.add_depots_cnx_edges(gdf_zip_clip, gdf_drive_nodes, 'zd', 'z', 'zip', G_cs, 'from_depot')
+    G_cs = utils.add_station_cnx_edges(gdf_zip_clip, gdf_drive_nodes, 'zd', 'z', 'zip', G_cs, 'from_depot')
 
     # rename mode_type of parking edges
     for e in G_cs.edges:

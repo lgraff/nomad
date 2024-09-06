@@ -22,7 +22,7 @@ def build_graph(G_drive, parking_nodes_path):
     # create df for driving nodes
     gdf_drive_nodes = utils.create_gdf_nodes(G_drive)
     # then connect each parking node to nearest driving intersection node
-    G_pv = utils.add_depots_cnx_edges(gdf_parking_nodes, gdf_drive_nodes, # ['ID','pos','zone','float_rate'],
+    G_pv = utils.add_station_cnx_edges(gdf_parking_nodes, gdf_drive_nodes, # ['ID','pos','zone','float_rate'],
                                    'k', 'pv', 'pv', G_pv, 'to_depot')
     # rename mode_type of parking edges
     for e in G_pv.edges:

@@ -18,3 +18,14 @@ nomad/data/network/processed/headway_dynamic.csv
 
 !nomad/data/network/raw/.gitkeep
 !nomad/data/demographics/raw/.gitkeep
+
+project1-use_cases/tdsp_files_pt/*
+project1-use_cases/tdsp_files_pt_bs/*
+project1-use_cases/tdsp_files_sn/*
+
+!project1-use_cases/tdsp_files_pt/.gitkeep
+!project1-use_cases/tdsp_files_pt_bs/.gitkeep
+!project1-use_cases/tdsp_files_sn/.gitkeep
+
+project1-use_cases/od_matrix_pt.csv
+project1-use_cases/od_matrix_pt_bs.csv

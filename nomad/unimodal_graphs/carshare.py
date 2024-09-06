@@ -33,23 +33,15 @@ def build_graph(G_drive, study_area_path, carshare_station_path, parking_nodes_p
     gdf_parking_nodes.insert(0, 'id', gdf_parking_nodes.index)  # add ID to each parking node
     # create df for driving nodes
     gdf_drive_nodes = utils.create_gdf_nodes(G_drive)
-    # then connect each parking node to nearest driving intersection node
-    G_cs = utils.add_station_cnx_edges(gdf_parking_nodes, gdf_drive_nodes, 'kz', 'z', 'zip', G_cs, 'to_depot')
-    # also connect each station node to nearest driving intersection node
-    G_cs = utils.add_station_cnx_edges(gdf_zip_clip, gdf_drive_nodes, 'zd', 'z', 'zip', G_cs, 'from_depot')
+    # then connect each parking node to nearest driving intersection node (TODO: change to "both")
+    G_cs = utils.add_station_cnx_edges(G_cs, gdf_parking_nodes, gdf_drive_nodes, 'kz', 'z', 'to_depot')
+    # also connect each carshare station node to nearest driving intersection node (TODO: change to "both")
+    G_cs = utils.add_station_cnx_edges(G_cs, gdf_zip_clip, gdf_drive_nodes, 'zd', 'z', 'from_depot')
 
     # rename mode_type of parking edges
     for e in G_cs.edges:
         if e[1].startswith('k'):
             G_cs.edges[e]['mode_type'] = 'park'
-
-    # # add cost of parking to zipcar: include parking rate + rate associated with zipcar rental
-    # park_hours = conf.config_data['Supernetwork']['num_park_hours']
-    # for e in G_cs.edges:
-    #     if e[1].startswith('kz'):  # if an edge leading into a parking node
-    #         parking_rate = G_cs.nodes[e[1]]['float_rate']  # rate per hour
-    #         zip_rate = conf.config_data['Price_Params']['zip']['ppmin']*60 # zip rate per hour
-    #         G_cs.edges[e]['0_price'] = park_hours * (parking_rate + zip_rate)
             
     # plot for visualization
     # node_color = ['blue' if n.startswith('zd') else 'red' if n.startswith('k') else 'black' for n in G_cs.nodes]

@@ -83,24 +83,3 @@ def build_supernewtork(modes_included, org_gdf, dst_gdf, output_path):
 
     # Save to output_path
     G_sn.save_graph(output_path)
-
-
-    # graph_sn_path = Path(__file__).parent.absolute().resolve() / 'graph_sn.pkl'
-    # graph_pt_path = Path(__file__).parent.absolute().resolve() / 'graph_pt.pkl'
-    
-    # # Build unimodal graphs
-    # all_graphs_dict = build_unimodals()
-
-    # # Connect unimodal graphs by transfer edges
-    # G_sn = connect_unimodals(all_graphs_dict, modes_included, graph_sn_path)  # Build full supernetwork inclusive of many modes
-
-    # # Get the origins and destinations (both are block group centroids)
-    # org_centroids_gdf = gpd.read_file(conf.subsidy_eligible_pop_path)
-    # org_centroids_eligible = org_centroids_gdf[org_centroids_gdf['total_eligible'] > 0].reset_index(drop=True)  # only the origins with eligible pop.
-
-    # dst_centroids_gdf = gpd.read_file(conf.opp_jobs_path)
-    # #dst_centroids_jobs_20 = dst_centroids_gdf[dst_centroids_gdf['opp_jobs_total'] > 20].reset_index(drop=True)  # only the destination centroids with > 25 jobs
-
-    # # Add od cnx edges to G_pt and G_sn
-    # #sn.add_od_cnx(graph_pt_path, org_centroids_eligible, dst_centroids_gdf)
-    # add_od_cnx(G_sn, org_centroids_eligible, dst_centroids_gdf)

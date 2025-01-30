@@ -24,12 +24,7 @@ def build_graph(G_bike, study_area_path, station_filepath, lat_colname, long_col
     gdf_bs = gpd.GeoDataFrame(df_bs)  # convert to geo df
     gdf_bs['pos'] = tuple(zip(gdf_bs[long_colname], gdf_bs[lat_colname]))  # add position
     
-    # Clip the bs node network
-    # study_area_gdf = gpd.read_file(os.path.join(os.path.join(os.getcwd(), 'Data', 'Output_Data'), 'study_area.csv'))
-    # # Check 
-    # fig,ax = plt.subplots()
-    # study_area_gdf.plot(ax=ax)
-    # gdf_bs.plot(ax=ax, color='black')
+    # Clip to study area
     study_area_gdf = gpd.read_file(study_area_path)
     gdf_bs_clip = gpd.clip(gdf_bs, study_area_gdf).reset_index().drop(columns=['index']).rename(
         columns={id_colname: 'id'})

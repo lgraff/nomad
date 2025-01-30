@@ -3,32 +3,29 @@ from pathlib import Path
 import pandas as pd
 import geopandas as gpd
 
-from nomad import conf
-
 def weighted_average(df, value, weight):
     '''Return the weighted average of the column df.value, weighted by the column df.weight.'''
     val = df[value]
     wt = df[weight]
     return (val * wt).sum() / wt.sum()
 
-def get_opp_jobs(lodes_path, county_avg_wage):
+def get_opp_jobs(config):
     '''Find number of opportunity jobs by block.'''
-    data_path = Path().resolve() / 'nomad' / 'data' / 'subsidy' / 'raw'
+    data_path = config['paths']['data']
     #TODO: for more precision, if desired, use this instead: https://www.bls.gov/oes/current/naics2_11.htm#11-0000 
     # this will provide median/mean hourly wage by NAICS code. can adjust by CPS (see Wardrip)
 
     # Crosswalks for mapping
-    naics_nem_crosswalk = pd.read_excel(data_path / 'naics-nem-crosswalk.xlsx', sheet_name='Table 1.9', skiprows=1)  # nationwide data: NAICs code to national employment matrix code
+    naics_nem_crosswalk = pd.read_excel(data_path['naics_nem_xwalk'], sheet_name='Table 1.9', skiprows=1)  # nationwide data: NAICs code to national employment matrix code
     # clean up the nem code for consistency (add dash after first two digits)
     naics_nem_crosswalk['2022 National Employment Matrix code'] = naics_nem_crosswalk['2022 National Employment Matrix code'].str[0:2] + '-' + naics_nem_crosswalk['2022 National Employment Matrix code'].str[2:]
-    nem_onet_crosswalk =  pd.read_excel(data_path / 'nem-onet-to-soc-crosswalk.xlsx', skiprows=4)   # nationwide data
+    nem_onet_crosswalk =  pd.read_excel(data_path['nem_onet_xwalk'], skiprows=4)   # nationwide data
 
     # O*NET data for surveyed workers' responses to required level of edu, keyed by O*NET SOC Code
-    df_onet = pd.read_excel(data_path / 'onet_education.xlsx')  # nationwide data
-    data_path = Path().resolve() / 'nomad' / 'data' / 'subsidy' / 'raw'
+    df_onet = pd.read_excel(data_path['onet_edu'])  # nationwide data
     df_onet = df_onet[df_onet['Scale ID'] == 'RL']  # RL stands for "required level of education"
     df_onet['Category'] = df_onet['Category'].astype('int') 
-    df_onet_categories = pd.read_excel(data_path / 'onet_edu_categories.xlsx')  # nationwide data
+    df_onet_categories = pd.read_excel(data_path['onet_categories'])  # nationwide data
     edu_categories = df_onet_categories.loc[df_onet_categories['Scale ID'] == 'RL'][['Category', 'Category Description']]
     df_onet = df_onet.merge(edu_categories, on='Category', how='left')
     df_onet = df_onet.merge(nem_onet_crosswalk, how='left', on='O*NET-SOC Code') # add NEM code
@@ -39,7 +36,7 @@ def get_opp_jobs(lodes_path, county_avg_wage):
     df_onet = df_onet[onet_cols].sort_values(by='O*NET-SOC Code', ascending=True).drop_duplicates(subset=['NEM Code'], keep='first')
 
     # BLS data for median hourly wage, keyed by NAICS code
-    df_wage = pd.read_excel(data_path / 'naics-nem-crosswalk.xlsx', sheet_name='Table 1.7', skiprows=1) # nationwide data
+    df_wage = pd.read_excel(data_path['naics_nem_xwalk'], sheet_name='Table 1.7', skiprows=1) # nationwide data
     # data cleaning with the wage variable
     df_wage['Median annual wage, 2022(1)'].fillna('0', inplace=True) # fill na values
     df_wage['Median annual wage, 2022(1)'] = df_wage['Median annual wage, 2022(1)'].apply(lambda x: '0' if x == '—' else x)
@@ -59,7 +56,7 @@ def get_opp_jobs(lodes_path, county_avg_wage):
     df_opp['less_bachelors_bls'] = df_opp['Typical education needed for entry'].apply(lambda x: 1 if x in less_bachelors_list else 0)
     df_opp['ind_less_bachelors'] = df_opp.apply(lambda row: 1 if ((row['pct_less_bachelors_onet'] >= 50) | (row['less_bachelors_bls'] == 1)) else 0, axis=1)
     # Label NEM code as 'opportunity' if median annual wage > county's per capita avg wage in the && required level of education < Bachelors
-    df_opp['opp_occupation'] = df_opp.apply(lambda row: 1 if ((row['Median_annual_wage'] >= county_avg_wage) & (row['ind_less_bachelors'] == 1)) else 0, axis=1)
+    df_opp['opp_occupation'] = df_opp.apply(lambda row: 1 if ((row['Median_annual_wage'] >= config['demographics']['COUNTY_AVG_WAGE']) & (row['ind_less_bachelors'] == 1)) else 0, axis=1)
     df_opp['OCCSOC'] = df_opp['NEM Code'].str[:2] + df_opp['NEM Code'].str[3:]
 
     # here is why i think OCCSOC and NEM are equivalent: https://www.bls.gov/emp/data/occupational-data.htm
@@ -67,7 +64,7 @@ def get_opp_jobs(lodes_path, county_avg_wage):
     # furthermore, under directories and crosswalks heading, we see: National Employment Matrix/SOC
 
     # IPUMS data
-    ipums_path = data_path / 'usa_00002.csv'  # nationwide data
+    ipums_path = data_path['ipums']  # nationwide data
     df_ipums = pd.read_csv(ipums_path)
     df_ipums['OCCSOC'] = df_ipums['OCCSOC'].str.strip()
     df_ipums = df_ipums[~(df_ipums['OCCSOC']=='0')]  # remove null data
@@ -81,8 +78,7 @@ def get_opp_jobs(lodes_path, county_avg_wage):
     naics_opp_share_dict = dict(zip(opp_share_by_naics['NAICS_2digit'], opp_share_by_naics['opp_occupation']))
 
     # use lodes/lehd to find number of jobs by census block, NAICS industry code pair
-    #lodes_path = data_path / 'pa_wac_S000_JT02_2021.csv'
-    df_lodes = pd.read_csv(lodes_path)
+    df_lodes = pd.read_csv(data_path['lodes'])
     df_lodes['GEOID20'] = df_lodes['w_geocode'].copy()
 
     #gdf = gpd.read_file(os.path.join(pa_blocks_folder, pa_blocks_shapefile))
@@ -117,20 +113,13 @@ def get_opp_jobs(lodes_path, county_avg_wage):
 
     return df_opp_jobs
 
-def join_df_to_shapefile(df, shapefile_path):
+def join_df_to_shapefile(df, shapefile_path, study_area_gdf):
     '''Join df to polygon shapefile so that df's data is associated with a geometry. Note: df and shapefile GEOIDs must match.
        Output a shapefile that contains df's attributes, as well as the polygon's x & y centroid coordinates.'''
-    study_area_gdf = gpd.read_file(conf.study_area_outpath)
-    study_area_gdf.to_crs(epsg=4269, inplace=True)
     
-    # # Shrink the study area by x miles
-    # x = 0.25 # miles (buffer the PT network even more than the street network b/c we can imagine the case of a bus route going outside the bounds and then returning inside)
-    # study_area_gdf = study_area_gdf.to_crs(crs='epsg:32128').buffer(x*1609).to_crs('EPSG:4326')  # 1609 meters/mile
-
+    study_area_gdf.to_crs(epsg=4269, inplace=True)
     shape = gpd.read_file(shapefile_path, mask=study_area_gdf)  # only include blocks within study area
-    shape.to_crs(epsg=4269, inplace=True)
-    shape = gpd.clip(shape, study_area_gdf) # clip again
-    shape.to_crs(epsg=4326, inplace=True)
+    shape = gpd.clip(shape, study_area_gdf).to_crs(epsg=4326)
     # Get centroid coordinates
     shape['x'] = shape.to_crs(epsg=2272).centroid.to_crs(epsg=4326).x
     shape['y'] = shape.to_crs(epsg=2272).centroid.to_crs(epsg=4326).y

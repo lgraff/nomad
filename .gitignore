@@ -3,12 +3,10 @@ old_files/
 
 nomad/accessibility/
 
-project2-subsidy/
-
+**/__pycache__/
 scratch/
 tests/
 
-optimize_copy.ipynb
 transit_accessibility.ipynb
 
 nomad/data/network/raw/*
@@ -19,11 +17,14 @@ nomad/data/network/processed/headway_dynamic.csv
 !nomad/data/network/raw/.gitkeep
 !nomad/data/demographics/raw/.gitkeep
 
+# PROJECT 1
+# ignore files in folder
 project1-use_cases/tdsp_files_pt/*
 project1-use_cases/tdsp_files_pt_bs/*
 project1-use_cases/tdsp_files_sn/*
 project1-use_cases/graphs/*
 
+# ...but keep the folder
 !project1-use_cases/tdsp_files_pt/.gitkeep
 !project1-use_cases/tdsp_files_pt_bs/.gitkeep
 !project1-use_cases/tdsp_files_sn/.gitkeep
@@ -31,3 +32,51 @@ project1-use_cases/graphs/*
 
 project1-use_cases/od_matrix_pt.csv
 project1-use_cases/od_matrix_pt_bs.csv
+
+# PROJECT 2
+# ignore files in folder
+project2-subsidy/data/network/raw/*
+project2-subsidy/data/network/processed/*
+project2-subsidy/data/demographics/raw/*
+project2-subsidy/data/demographics/processed/*
+project2-subsidy/graphs/*
+project2-subsidy/solutions_30min/*
+project2-subsidy/solutions_30min_v2/*
+project2-subsidy/solutions_45min/*
+project2-subsidy/modal_travel_costs_2.csv
+project2-subsidy/modal_travel_costs_OLD.csv
+project2-subsidy/org2idx.csv
+project2-subsidy/dst2idx.csv
+project2-subsidy/optimize.ipynb
+project2-subsidy/scratch.ipynb
+
+# ...but keep the folder
+!project2-subsidy/data/network/raw/.gitkeep
+!project2-subsidy/data/network/processed/.gitkeep
+!project2-subsidy/data/demographics/raw/.gitkeep
+!project2-subsidy/data/demographics/processed/.gitkeep
+!project2-subsidy/graphs/.gitkeep
+!project2-subsidy/solutions_30min_v2/.gitkeep
+
+# PROJECT 3
+# ignore files in folder
+project3-network_opt/data/network/raw/*
+project3-network_opt/data/network/processed/*
+project3-network_opt/data/demographics/raw/*
+project3-network_opt/data/demographics/processed/*
+project3-network_opt/graphs/*
+project3-network_opt/parks/*
+project3-network_opt/OD_demand.ipynb
+project3-network_opt/od_cost_matrix_results.csv
+project3-network_opt/scratch.ipynb
+
+# ...but keep the folder
+!project3-network_opt/data/network/raw/.gitkeep
+!project3-network_opt/data/network/processed/.gitkeep
+!project3-network_opt/data/demographics/raw/.gitkeep
+!project3-network_opt/data/demographics/processed/.gitkeep
+!project3-network_opt/graphs/.gitkeep
+!project3-network_opt/parks/.gitkeep
+
+# FOLDER_NAME/*
+# !FOLDER_NAME/.gitkeep

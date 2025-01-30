@@ -14,18 +14,16 @@ def generate_fips_code(df_census, fips_map):
     df_census['Block_Group'] = df_census['Block_Group'].str.extract(r'([\d]+)')
     df_census['Census_Tract'] = df_census['Census_Tract'].str.extract(r'([\d.]+)')
     # https://www2.census.gov/geo/pdfs/reference/GARM/Ch
-
-
     df_census['split_census_tract'] = df_census['Census_Tract'].str.split('.')
     df_census['tract_post_decimal'] = df_census['split_census_tract'].apply(lambda x: x[1] if len(x) > 1 else '00')
     df_census['tract_pre_decimal'] = df_census['split_census_tract'].apply(lambda x: x[0]).str.zfill(4) # pad if less than 4 digits
     # df_census['tract_trailing_digits'].unique() # quick test
     df_census['FIPS'] = df_census['State'] + df_census['County'] + df_census['tract_pre_decimal'] + df_census['tract_post_decimal'] + df_census['Block_Group']
 
-def get_eligible_population(census_data_filepath):
+def get_poverty_data(config):
     '''Use census data to find the subsidy-eligble population. 
        Note: this code works for a specific census table, would need to be adapted if a different table is preferred.'''
-    df = pd.read_csv(census_data_filepath)
+    df = pd.read_csv(config['paths']['data']['census'])
     df.index = df['Label (Grouping)']
     df = df.shift(periods=-1)
     df = df.loc[df.index.str.startswith('Block Group')]
@@ -41,8 +39,7 @@ def get_eligible_population(census_data_filepath):
     df.rename(columns=new_cols, inplace=True)
     df[['married_couple', 'other_family', 'non_family']] = df.astype(dict(zip(['married_couple', 'other_family', 'non_family'], ['int']*3)))
     df['geography'] = df.index
-    fips_map = {'Pennsylvania': '42', 'Allegheny County': '003'}
-    generate_fips_code(df, fips_map)
+    generate_fips_code(df, config['geography']['fips_map'])
     # get total number of people who qualify per fips code
     # married couple familes count as 2 people; 
     # other family counts as 1 person because if you go into the table, it states that no spouse is present
@@ -50,6 +47,7 @@ def get_eligible_population(census_data_filepath):
     # https://www.census.gov/programs-surveys/cps/technical-documentation/subject-definitions.html#:~:text=the%20related%20subfamily.-,Household%2C%20nonfamily,he%2Fshe%20is%20not%20related.
     df['total_eligible'] = 2*df['married_couple'] + 1*df['other_family'] + 1*df['non_family'] # this checks out with the 'Total' column in the table
     df['GEOID'] = df['FIPS'].copy()
+    
     return df
 
 # def join_census_to_shapefile(df_census, shapefile_path):

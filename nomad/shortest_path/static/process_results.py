@@ -19,24 +19,28 @@ def get_sp_travel_time(df_edge_cost_subset, sp_edge_list):
     total_travel_time = np.nan if len(sp_edge_list) == 0 else df_edge_cost_subset[df_edge_cost_subset['edge'].isin(sp_edge_list)]['avg_tt_sec'].sum()
     return total_travel_time
 
-def get_sp_expense(df_edge_cost_subset, shortest_path, idx2name, sp_edge_list):
+def get_sp_expense(df_edge_cost_subset, sp_edge_list):
     '''Return shortest path monetary expense.'''
     if len(sp_edge_list) == 0:
         total_expense = np.nan
     else:
         total_expense = df_edge_cost_subset[df_edge_cost_subset['edge'].isin(sp_edge_list)]['price'].sum()
-
-    named_sp = [idx2name[n] for n in shortest_path]
-
-    transit_nodes = [n for n in named_sp if n.startswith('rt')]
-    if len(transit_nodes) > 0:
-        total_expense_less_pt = total_expense - conf.PRICE_PARAMS['board']['fixed']
-    else: 
-        total_expense_less_pt = total_expense
-
-    return total_expense, total_expense_less_pt
+    
+    return total_expense
 
 #TODO: include node cost for feeless PT transfers
+
+def transit_included(idx2name, shortest_path):
+    named_sp = [idx2name[n] for n in shortest_path]
+    transit_nodes = [n for n in named_sp if n.startswith('rt')]
+    transit_included = True if len(transit_nodes) > 0 else False
+    return transit_included
+
+    # if len(transit_nodes) > 0:
+    #     total_expense_less_pt = total_expense - conf.PRICE_PARAMS['board']['fixed']
+    # else: 
+    #     total_expense_less_pt = total_expense
+
 
 def process_od(G_idx, node_cost_idx, weight_name, idx2name, df_edge_cost, source, target):
     '''Run shortest path from source to target using G_idx as a input.

@@ -4,7 +4,7 @@ import numpy as np
 
 from nomad import conf
 
-def assign_node_costs(G_sn):
+def assign_node_costs(G_sn, config):
     '''
     --Create a node cost dict whose keys are of the form (node_from, node_via, node_to) and whose values are the node cost.
     --The node cost represents the cost of moving from one node to another node via an intermidate node.
@@ -14,30 +14,35 @@ def assign_node_costs(G_sn):
     '''
 
     node_cost_data = []
-    for n in list(G_sn.graph.nodes):
-        edges_in = list(G_sn.graph.in_edges(n))
-        edges_out = list(G_sn.graph.out_edges(n))
+    for n in G_sn.graph.nodes:
+        edges_in = list(G_sn.graph.in_edges(n, keys=True))  # Include edge keys
+        edges_out = list(G_sn.graph.out_edges(n, keys=True))  # Include edge keys
+        
         for ei in edges_in:
-            for eo in edges_out:            
-                # account for fee-less PT transfers
-                if (n.startswith('ps')) & (G_sn.graph.edges[ei]['mode_type'] == 'alight') & (eo[1].startswith('ps')) :
-                    # node from, node via, node to
-                    node_cost_data.append((ei[0], n, eo[1], - conf.PRICE_PARAMS['board']['fixed']))
-                       #node_cost_data.append([inv_nid_map[n], link_id_map[ei_num], link_id_map[eo_num], 'pt_tx'])
+            for eo in edges_out:
+                # Unpack edge details
+                ei_u, ei_v, ei_key = ei
+                eo_u, eo_v, eo_key = eo
+
+                # Access edge attributes
+                ei_attrs = G_sn.graph.get_edge_data(ei_u, ei_v, ei_key)
+                eo_attrs = G_sn.graph.get_edge_data(eo_u, eo_v, eo_key)
                 
-                # # cannot go backwards i.e. bs1--bsd25--bs1
-                # if (n.startswith('bs')) & (ei[0] == eo[1]):
-                #     node_cost_data.append((ei[0], n, eo[1], float(math.inf)))
-                #        #node_cost_data.append([inv_nid_map[n], link_id_map[ei_num], link_id_map[eo_num], 'backward'])
+                # Account for fee-less PT transfers
+                if (
+                    n.startswith('ps') and
+                    ei_attrs['mode_type'] == 'alight' and
+                    eo_v.startswith('ps')
+                ):
+                    node_cost_data.append((ei_u, n, eo_v, -config['price_params']['board']['fixed']))
 
-                # prevent two consecutive walking edges
-                if (G_sn.graph.edges[ei]['mode_type'] == 'w') & (G_sn.graph.edges[eo]['mode_type'] == 'w'):
-                    node_cost_data.append((ei[0], n, eo[1], 10000))
-
-     # build node_cost dict
-    #node_cost_dict = {(n_from, n_via, n_to): cost for n_from, n_via, n_to, cost in node_cost_data}
-
-    # construct node cost df
-    df_node_cost = pd.DataFrame(node_cost_data, columns=['node_from','node_via','node_to', 'cost'])
-
+                # Uncomment below to prevent two consecutive walking edges
+                # if (
+                #     ei_attrs['mode_type'] == 'w' and
+                #     eo_attrs['mode_type'] == 'w'
+                # ):
+                #     node_cost_data.append((ei_u, n, eo_v, 10000))
+                
+    # Construct node cost DataFrame
+    df_node_cost = pd.DataFrame(node_cost_data, columns=['node_from', 'node_via', 'node_to', 'cost'])
     return df_node_cost    

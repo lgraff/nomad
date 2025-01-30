@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nomad"
+description = "FILL ME IN" # fix
+version = "0.0.1"
+authors = [
+    {name = "Lindsay Graff"},
+]
+readme = "README.md"
+license = {text = "MIT"} # fix
+keywords = [
+    # add keywords
+]
+requires-python = ">=3.9"  # fix
+dependencies = [
+    # fix or leave blank
+]
+

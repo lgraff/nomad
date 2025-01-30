@@ -15,10 +15,9 @@ Process street centerlines and conduct street safety analysis
     
 @author: lindsaygraff
 """
-#%% import libraries
+# Libraries
 import os
 import geopandas as gpd
-#import config as conf
 import networkx as nx
 import pandas as pd
 import numpy as np
@@ -54,18 +53,7 @@ def get_nearest(src_point, candidates, k_neighbors=1):
     # Return indices and distances
     return (closest, closest_dist)
 
-# Read street centerlines data
-
-# cwd = os.getcwd()
-# streets_shapefile_path = os.path.join(cwd, 'Data', 'Input_Data', 'AlleghenyCounty_StreetCenterlines202208', 
-#                                      'AlleghenyCounty_StreetCenterlines202208.shp')
-# bikemap_folder = os.path.join(cwd, 'Data', 'Input_Data', 'bike-map-2019')
-# studyarea_filepath = os.path.join(os.path.join(os.getcwd(), 'Data', 'Output_Data'), 'study_area.csv')
-# G_drive_output_path = os.path.join(cwd, 'Data', 'Output_Data', 'G_drive.pkl')
-# G_bike_output_path = os.path.join(cwd, 'Data', 'Output_Data', 'G_bike.pkl')
-
-
-def process_street_centerlines(studyarea_filepath, streets_shapefile_path, crash_output_path, bikemap_folder, streets_processed_path, G_drive_path, G_bike_path):
+def process_street_centerlines(studyarea_filepath, streets_shapefile_path, crash_sample_path, crash_model_path, bikemap_folder, streets_processed_path, G_drive_path, G_bike_path):
     '''
     Output:
     -- processed streets
@@ -92,7 +80,7 @@ def process_street_centerlines(studyarea_filepath, streets_shapefile_path, crash
     streets_clip['frc'] = streets_clip['FCC'].map(FCC_roadclass_dict).map(roadclass_frc_map).astype(int)
 
     # Vehicle safety: add vehicle crash data
-    df_crash = pd.read_csv(crash_output_path)
+    df_crash = pd.read_csv(crash_sample_path)
     df_crash = df_crash.loc[~((df_crash['DEC_LAT'].isnull()) | (df_crash['DEC_LONG'].isnull()))]
     gdf_crash = gpd.GeoDataFrame(df_crash, geometry=gpd.points_from_xy(x=df_crash['DEC_LONG'], y=df_crash['DEC_LAT']), 
                                 crs='EPSG:4326')
@@ -126,7 +114,7 @@ def process_street_centerlines(studyarea_filepath, streets_shapefile_path, crash
                     family=sm.families.Poisson()).fit() # alternatively, can add  + C(ST_TYPE) to the crash_model
     streets_clip.loc[:,'pred_crash'] = crash_model.predict(streets_clip)
     
-    crash_model.save(conf.crash_model_path) # save the crash_model as output
+    crash_model.save(crash_model_path) # save the crash_model as output in directory /data/processed/
     streets_clip.to_crs('EPSG:2272', inplace=True)
     #streets_clip.to_csv(os.path.join(cwd, 'Data', 'Output_Data', 'streets_processed.csv'), index=False) # for risk analysis 
 

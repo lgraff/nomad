@@ -1,7 +1,11 @@
-import networkx as nx 
-import numpy as np
 import re
 import pickle
+from itertools import combinations
+
+import networkx as nx 
+import numpy as np
+from shapely import Point
+import geopandas as gpd
 
 from nomad import utils
 from nomad import conf
@@ -25,8 +29,14 @@ def nn(dist_to_all_nodes, nid_map, travel_mode):
 class Supernetwork:
     def __init__(self, unimodal_graphs, fix_pre, flex_pre):
         '''Union all the unimodal graphs. Define which nodes are fixed and flex for purpose of creating transfer edges in add_transfer_edges().'''
-        self.networks = unimodal_graphs
-        self.graph = nx.union_all(unimodal_graphs)
+        #self.networks = unimodal_graphs
+        # Convert each graph to MultiDiGraph if not already
+        self.networks = [nx.MultiDiGraph(g) if not isinstance(g, nx.MultiDiGraph) else g for g in unimodal_graphs]
+        
+        #self.graph = nx.union_all(unimodal_graphs)
+        
+        # Union all the MultiDiGraphs
+        self.graph = nx.union_all(self.networks)
         self.fix_pre = fix_pre  # which *nodes* are fixed in the supernetwork
         self.flex_pre = flex_pre   # which *nodes* are flex in the supernewtork
     
@@ -66,11 +76,13 @@ class Supernetwork:
     def define_pmx(self, pmx):
         '''Define the permitted mode changes within the supernetwork.'''
         self.pmx = pmx
-       
-    def add_transfer_edges(self, W):
-        '''See: Algorithm 1, Graff et al. (2024).'''
+
+    def add_transfer_edges(self, W, config):
+        '''See: Algorithm 1, Graff et al. (2024).
+           config contains parameters for scooter simulation. We must simulate scooter location data in the absence of real data.
+        '''
         # Generate scooter transfer data, assuming real data unavailable
-        sc_costs = utils.generate_data(self)
+        sc_costs = utils.generate_data(self, config)
     
         etype = 'transfer'
         trans_edges = {}
@@ -88,7 +100,6 @@ class Supernetwork:
                         # build the transfer edge
                         edge = (i_name, j_name)
                         # find the walking time associated with transfer edge, call it walk_cost
-                        #walk_time = self.gcd_dist[i,j] / conf.config_data['Speed_Params']['walk']   # (seconds)  # dist[m] / speed [m/s] / 60 s/min  --> [min]
                         #wait_time = 0
                         # TO DO: account for a no-cost public transit transfer in node-movement cost file
                         fixed_price = 0   # already account for PT fixed cost in the boarding edges              
@@ -117,7 +128,6 @@ class Supernetwork:
                             k_name = nnName
                             edge_in = (i_name, k_name)                
                             edge_out = (k_name, i_name)
-                            # walk_time = nnDist / conf.config_data['Speed_Params']['walk']  # (seconds)       dist[m] / speed [m/s] 
                             # TODO: do we want to add a "wait time" associated with scooter/bikeshare unlocking? that seems like almost too granular though
                             # consider: add fixed price (approx) of zipcar? 
                             attr_dict = {'length_m':nnDist, 'mode_type':'w', 'etype':etype} 
@@ -155,6 +165,44 @@ class Supernetwork:
         trans_edges = [(e[0], e[1], trans_edges[e])for e in trans_edges.keys()]
         self.graph.add_edges_from(trans_edges)
 
+    def add_microtransit_edges(self, zones_gdf):
+        '''Add microtransit edges to the graph. A microtransit edge connects any two fixed points within a service zone.
+            Parameters
+            ----------
+            zones_gdf : GeoDataFrame containing microtransit service zones as polygons.
+
+            Returns
+            -------
+            None: The function adds the edges to the graph object.    
+        '''
+        nid_map = self.nid_map
+        points = [Point(point) for point in self.coord_matrix] # nodes in the graph
+        gdf_points = gpd.GeoDataFrame(geometry=points, crs='EPSG:4326')
+
+        mt_edges = {}
+
+        # Check each zone and find points inside
+        for idx, zone in enumerate(zones_gdf['geometry']):
+            nids_inside = gdf_points[gdf_points.geometry.within(zone)].index.tolist()
+            fixed_nodes_inside = [nid for nid in nids_inside if utils.mode(nid_map[nid]) in self.fix_pre + ['org','dst']]
+            
+            # Construct an edge between any two fixed points within a service zone
+            # TODO: Remove edges org-org and dst-dst even though technically they are both fixed points
+            edge_pairs = list(combinations(fixed_nodes_inside, 2))            
+            for edge in edge_pairs:
+                edge_name = (nid_map[edge[0]], nid_map[edge[1]])
+                # Define the length, mode type, edge type, and zone number of each edge
+                attr_dict = {'length_m': self.gcd_dist[edge[0], edge[1]], 'mode_type': 'mt', 'etype': 'mt', 'zones': [idx]}
+                
+                if edge_name in mt_edges:
+                    mt_edges[edge_name]['zones'].append(idx)
+                else:
+                    mt_edges[edge_name] = attr_dict
+        
+        # Add the edges to the graph object
+        mt_edges = [(e[0], e[1], mt_edges[e]) for e in mt_edges.keys()]
+        self.graph.add_edges_from(mt_edges)
+
     def add_od_nodes(self, org_nodes, dst_nodes):
         '''Add origin/destination nodes to the graph of the supernetwork object in place. Each o/d is labeled by its index in the gdf.
            Function get_node_idx2geo_dict() is subsequently used to relable index to census ID
@@ -168,13 +216,17 @@ class Supernetwork:
             self.graph.add_nodes_from([('dst'+str(i), {'pos': tuple(d_coord), 'nwk_type':'od', 'node_type':'od'})]) # add the org nodes to the graph along with their positions 
             self.nid_map[max(self.nid_map.keys())+1] = 'dst'+str(i) # add them to the nid_map
 
-    def add_org_cnx(self, org_coords):
+        # Update the coordinate matrix and gcd matrix
+        self.coord_matrix = np.vstack((self.coord_matrix, org_nodes, dst_nodes))
+        self.add_gcd_dist_matrix() 
+
+    def add_org_cnx(self, org_coords, config):
         '''Add origin connection edges to the graph of the supernetwork object.'''
         nid_map = self.nid_map
         coord_matrix = self.coord_matrix  # twait nodes are not added to nid map *at this stage*. nor are the orgs
         
         # First generate all scooter data (assuming true data is unavailable)
-        sc_costs = utils.generate_data(self, od_cnx=True) 
+        sc_costs = utils.generate_data(self, config, od_cnx=True) 
         
         # Add the org connectors
         for i, o_coord in enumerate(list(org_coords)):   # o_coords is an n x 2 numpy array
@@ -346,9 +398,18 @@ class Supernetwork:
             self.nid_map[max(self.nid_map.keys())+1] = tw
 
     @classmethod
-    def from_graphs_dict(cls, all_graphs_dict, modes_included):
-        # this dict defines which graphs correspond to each mode type 
-        #all_graphs_dict = {'t':G_tnc, 'pv':G_pv, 'pb':G_pb, 'bs':G_bs, 'pt':G_pt, 'sc':G_sc, 'z':G_z}
+    def from_graphs_dict(cls, all_graphs_dict, modes_included, config):
+        """
+        Create a Supernetwork from a dictionary of graphs and included modes.
+        
+        Parameters:
+        all_graphs_dict (dict): Dictionary mapping mode types to their corresponding graphs.
+        modes_included (list): List of modes to include in the supernetwork.
+        config (dict): Configuration dictionary.
+        
+        Returns:
+        Supernetwork: An instance of the Supernetwork class.
+        """
         
         # Dict that defines the node prefixes corresponding to each mode type 
         all_modes_nodes = {'bs':['bs', 'bsd'], 'pt':['ps','rt'], 't':['t'], 'sc':['sc'], 'pv':['pv','k'], 'pb':['pb'], 'z':['zd','z','kz']}
@@ -357,13 +418,17 @@ class Supernetwork:
         all_fix_pre = ['bsd','ps','k', 'zd', 'kz']  
         all_flex_pre = ['t', 'pb', 'pv', 'sc'] 
         
-        fix_pre_included = [n for m in modes_included for n in all_modes_nodes[m] if n in all_fix_pre]
-        flex_pre_included = [n for m in modes_included for n in all_modes_nodes[m] if n in all_flex_pre]
-        
+        adjusted_modes = modes_included.copy()
+        if 'mt' in adjusted_modes:
+            adjusted_modes.remove('mt')
+
+        fix_pre_included = [n for m in adjusted_modes for n in all_modes_nodes[m] if n in all_fix_pre]
+        flex_pre_included = [n for m in adjusted_modes for n in all_modes_nodes[m] if n in all_flex_pre]
+                
         # this dict defines which modes and nodes are included in the supernetwork
         #modes_nodes_included = {k:v for k,v in all_modes_nodes.items() if k in modes_included}
         
-        graphs_included = [all_graphs_dict[m] for m in modes_included]  
+        graphs_included = [all_graphs_dict[m] for m in adjusted_modes]  
         
         # Permitted mode changes
         pmx = [('ps','ps'),('bsd','ps'),('ps','bsd'),('ps','t'),('t','ps'),('t','bsd'),('bsd','t'), ('k','ps'),('k','t'),('k','bsd'),('ps','pb'),
@@ -379,8 +444,8 @@ class Supernetwork:
         G_sn.define_pmx(pmx)
         
         # Add transfer edges
-        W_tx = conf.W_tx * conf.MILE_TO_METERS
-        G_sn.add_transfer_edges(W_tx)
+        W_tx = config['supernetwork']['W_tx'] * conf.MILE_TO_METERS
+        G_sn.add_transfer_edges(W_tx, config)
         
         print('supernetwork built')      
         #G_sn.save_object(output_path)

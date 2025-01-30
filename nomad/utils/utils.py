@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import itertools
 from sklearn.neighbors import BallTree
 import statsmodels as sm
 import os
@@ -255,17 +255,14 @@ def rename_mode_type(row):
     return edge_type
 
 
-# inputs: graph, num of days of historical data, num of time intervals, num of scooter obs per time-interval day lower bound
-# and upper bound, lower and upper bound of potential (x,y) coordinate of scooter, node id map, some cost parameters
-# output: dict of dicts
-def generate_data(G_super, od_cnx=False):
+def generate_data(G_super, config, od_cnx=False):
     """
     Generate historical location data for conf.NUM_DAYS (for scooters in particular, could also be used for other modes) in the absence of real data.
     Calculate mean and 95th percentile distance from each fixed node and its nearest scooter based on this simulated data.
     Return dict: {fixed_node_ID: {'length_m': [mean_length_val_meters], '95_length_m': [95th_percentile_length_val_meters]}
     """
     # Define the bounds
-    study_area_gdf = gpd.read_file(conf.study_area_outpath)
+    study_area_gdf = gpd.read_file(config['paths']['data']['study_area_out'])
     bbox = study_area_gdf.bounds.iloc[0]
     xlb, xub, ylb, yub = bbox['minx'], bbox['maxx'], bbox['miny'], bbox['maxy']
     
@@ -285,19 +282,19 @@ def generate_data(G_super, od_cnx=False):
 
     for i in range(1):  # just do this once and reuse the results for all time intervals 
         obs = {}  # obs is a dict, where the key is the day, the value is an array of coordinates representing different observations
-        for j in range(conf.NUM_DAYS_OF_DATA):  # each day
+        for j in range(config['scooter_simulation']['NUM_DAYS_OF_DATA']):  # each day
             # generate some random data: data is a coordinate matrix
             # the scooter observations should fit within the bounding box of the neighborhood mask polygon layer
             data = [(round(np.random.uniform(xlb, xub),8), 
-                     round(np.random.uniform(ylb, yub),8)) for k in range(int(conf.NUM_OBS))]  
+                     round(np.random.uniform(ylb, yub),8)) for k in range(int(config['scooter_simulation']['NUM_OBS']))]  
             obs[j] = np.array(data)  
 
         # find edge cost
         node_cost_dict = {}
         for n in nid_map_fixed.values():  # for each fixed node (or, for the org/dst when generating for od_cnx)
-            all_min_dist = np.empty((1, conf.NUM_DAYS_OF_DATA))  # initialize the min distance matrix, one entry per day
+            all_min_dist = np.empty((1, config['scooter_simulation']['NUM_DAYS_OF_DATA']))  # initialize the min distance matrix, one entry per day
                        
-            for d in range(conf.NUM_DAYS_OF_DATA):  # how many days of historical scooter data we have                
+            for d in range(config['scooter_simulation']['NUM_DAYS_OF_DATA']):  # how many days of historical scooter data we have                
                 all_dist = calc_great_circle_dist(np.array(G_super.graph.nodes[n]['pos']), obs[d])  # dist from the fixed node to all observed scooter locations 
                 min_dist = np.min(all_dist)  # choose the scooter with min dist. assume a person always walks to nearest scooter
                 all_min_dist[0,d] = min_dist # for the given day, the dist from the fixed node to the nearest scooter is min_dist
@@ -325,3 +322,54 @@ def generate_data(G_super, od_cnx=False):
         for node, cost_dict in node_cost_dict.items():
             all_costs[node].update(cost_dict) 
     return all_costs
+
+
+# Pre-processing steps before running djikstra() function. Graph must be in 'index' or numerical form.
+
+def get_cost_subsets(mode_subset, df_edge_cost, df_node_cost):
+    '''Create edge and node cost subsets, only inclusive of the edges and nodes corresponding to the selected mode combination.
+       Return: a subset of the edge cost df; a subset of the node cost df.'''
+    # Edge cost subset
+    edges_include = list(itertools.chain(*[conf.modes_to_edge_type[m] for m in mode_subset])) + ['w']
+    df_edge_cost_subset = df_edge_cost[df_edge_cost['mode_type'].isin(edges_include)].copy() # filter the df_edge_cost_subset by the included modes/edges
+    df_edge_cost_subset['edge'] = tuple(zip(df_edge_cost_subset.source, df_edge_cost_subset.target))  # add the edge as a tuple
+    # Node cost subset
+    nodes = set(df_edge_cost_subset.source.unique().tolist() + df_edge_cost_subset.target.unique().tolist())  # node set
+    df_node_cost_subset = df_node_cost[((df_node_cost['node_from'].isin(nodes)) & (df_node_cost['node_via'].isin(nodes)) & (df_node_cost['node_to'].isin(nodes)))]
+
+    return (df_edge_cost_subset, df_node_cost_subset) 
+
+def get_node_idx_map(df_edge_cost):
+    '''Convert node name to node index (numerical)
+       Return a map from node name to node index.'''
+    nodes = sorted(set(df_edge_cost.source.unique().tolist() + df_edge_cost.target.unique().tolist()))  # node set
+    name2idx = dict(zip(nodes, range(len(nodes)))) # make map from node name to index
+    return name2idx    
+
+def get_G_idx(df_edge_cost):
+    """Get the 'index' or numerical version of a graph i.e. all nodes are defined by a number, not a string name.
+       Return: a new digraph, G_idx, where all nodes are numerical.
+    """
+    name2idx = get_node_idx_map(df_edge_cost)
+    df_edge_cost.loc[:,'source_idx'] = df_edge_cost.loc[:,'source'].map(lambda x: name2idx[x])
+    df_edge_cost.loc[:,'target_idx'] = df_edge_cost.loc[:,'target'].map(lambda x: name2idx[x])
+    G_idx = nx.from_pandas_edgelist(df_edge_cost, source='source_idx', target='target_idx', edge_attr=['GTC', 'mode_type'], create_using=nx.DiGraph)
+    G_idx.remove_nodes_from(list(nx.isolates(G_idx))) # remove isolated nodes (those without neighbors) - do we need this step?
+    
+    return G_idx
+
+def get_node_cost_idx(df_node_cost, name2idx):
+    '''Get node costs in index form.
+       Return a dict of the form {(node_from, node_via, node_to): node_cost}.'''
+    
+    # Map node names to indices
+    node_from_idx = list(map(lambda name: name2idx.get(name,-1), df_node_cost['node_from'].tolist()))
+    node_via_idx = list(map(lambda name: name2idx.get(name,-1), df_node_cost['node_via'].tolist()))
+    node_to_idx = list(map(lambda name: name2idx.get(name,-1), df_node_cost['node_to'].tolist()))
+    
+    # Create a dictionary from the keys and values
+    node_cost_dict_keys = tuple(zip(node_from_idx, node_via_idx, node_to_idx))
+    node_cost_dict_vals = df_node_cost['cost']
+    
+    # Return a dictionary mapping the keys to their corresponding costs
+    return dict(zip(node_cost_dict_keys, node_cost_dict_vals))

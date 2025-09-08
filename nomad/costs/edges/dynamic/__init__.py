@@ -1,9 +1,9 @@
 
-def extend_inrix_data(inrix_df, ratio_name, time_start, time_end, interval_spacing):
+def extend_inrix_data(config, inrix_df, ratio_name, time_start, time_end, interval_spacing):
     '''Returns df_ext, which stores the travel time (tt) ratio relative to the first departure time in the interval on the level of frc.
        e.g., if the first departure time is 7am, then the tt ratio at 7:05am for frc=2 represents the avg ratio of travel times between 7:05am and 7am for all roads with frc=2.'''
     sec_after_midnight = np.arange(time_start, time_end, interval_spacing)
-    INRIX_SPACING = conf.INRIX_SPACING
+    INRIX_SPACING = config['time_factors']['INRIX_SPACING']
     df_ext = pd.DataFrame(columns=['frc','sec_after_midnight', ratio_name])
     for frc in [2,3,4]:
         df = inrix_df[inrix_df['frc'] == frc]

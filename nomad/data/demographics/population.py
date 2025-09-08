@@ -23,7 +23,7 @@ def generate_fips_code(df_census, fips_map):
 def get_poverty_data(config):
     '''Use census data to find the subsidy-eligble population. 
        Note: this code works for a specific census table, would need to be adapted if a different table is preferred.'''
-    df = pd.read_csv(config['paths']['data']['census'])
+    df = pd.read_csv(config['paths']['data']['poverty'])
     df.index = df['Label (Grouping)']
     df = df.shift(periods=-1)
     df = df.loc[df.index.str.startswith('Block Group')]

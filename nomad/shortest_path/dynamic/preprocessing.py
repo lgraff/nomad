@@ -1,13 +1,13 @@
-
+""" This module contains functions to prepare input files for MAC-POSTS time-dependent shortest path (TDSP) API."""
 import numpy as np
+import macposts
 
-import MNMAPI
-from nomad import conf
 from nomad import costs
 from nomad import shortest_path as sp
 from nomad.costs.nodes import dynamic
 
-def edit_config(folder, graph_name, num_rows_link_file, num_rows_node_file):
+def write_config(folder, graph_name, num_rows_link_file, num_rows_node_file):
+    """Write config.conf for macposts TDSP initialization."""
     with open(folder / 'config.conf', 'w') as f:
         f.write('[Network] \n')
         f.write('network_name = ' + graph_name + '\n')
@@ -15,8 +15,7 @@ def edit_config(folder, graph_name, num_rows_link_file, num_rows_node_file):
         f.write('num_of_node = ' + str(num_rows_node_file) + '\n')
 
 def prepare_graph_file(tdsp_folder, G_sn):
-    # Prepare files for compatiblity with MAC-POSTS
-    ### Create graph topology file
+    """ Prepare the graph topology file for TDSP API."""
     df_G = costs.edges.nx_to_df(G_sn).sort_values(by=['source','target','mode_type']).reset_index(drop=True)
     df_G.rename(columns={'source':'source_named', 'target':'target_named'}, inplace=True)
     nid_map = get_nid_map(df_G)
@@ -35,24 +34,22 @@ def prepare_graph_file(tdsp_folder, G_sn):
     f.writelines(log)
     f.close() 
 
-    ### Create linkID map and its inverse
-    # linkID_map = dict(zip(df_G['linkID'], tuple(zip((df_G['source']),df_G['target']))  ))
-    # inv_linkID_map = dict(zip(linkID_map.values(), linkID_map.keys()))
-    return df_G #, inv_linkID_map
+    return df_G
 
 def get_nid_map(df_G):
+    """ Get a mapping dictionary from node ID (key) to node name (value)."""
     node_set = sorted(list(set(df_G['source_named']).union(set(df_G['target_named']))))
     nid_map = dict(zip(range(len(node_set)), node_set))
     return nid_map
 
 def get_link_id_map(df_G):
+    """ Get a mapping dictionary from link ID (key) to (source_named, target_named) tuple (value)."""
     linkID_map = dict(zip(df_G['linkID'], tuple(zip((df_G['source_named']),df_G['target_named']))  ))
     return linkID_map
 
-def prepare_node_files(tdsp_folder, df_node_cost_dynamic):
-    ### Create node cost array
-    INTERVAL_SPACING = conf.INTERVAL_SPACING
-    NUM_INTERVALS = conf.NUM_INTERVALS
+def prepare_node_files(config, tdsp_folder, df_node_cost_dynamic):
+    """ Prepare the node cost and node travel time files for TDSP API."""
+    NUM_INTERVALS = config['time_factors']['NUM_INTERVALS']
     interval_columns = [f'i{i}' for i in range(NUM_INTERVALS)]
     td_node_cost = df_node_cost_dynamic[['node_id_via','linkID_in','linkID_out']+interval_columns].values    # nodeID, inLinkID, outLinkID, cost
     
@@ -67,7 +64,7 @@ def prepare_node_files(tdsp_folder, df_node_cost_dynamic):
     f.writelines(log)
     f.close()
 
-    # save node tt as plain txt
+    # Save node tt as plain txt
     # This file stores the time-dependent movement-based node travel time cost. It is a requirement of DOT algorithm in MAC-POSTS. For our purposes, it has just one row of zeros.'''   
     filename = 'td_node_tt'
     num_rows = td_node_cost.shape[0]
@@ -82,11 +79,10 @@ def prepare_node_files(tdsp_folder, df_node_cost_dynamic):
     f.writelines(log)
     f.close()
 
-def prepare_tt_file(tdsp_folder, linkID_arr, df_tt_dynamic):
-    ### Create time-dep (td) travel time (tt) array 
-    #td_link_tt = np.hstack((linkID_arr, td_link_tt))
-    INTERVAL_SPACING = conf.INTERVAL_SPACING
-    NUM_INTERVALS = conf.NUM_INTERVALS
+def prepare_tt_file(config, tdsp_folder, linkID_arr, df_tt_dynamic):
+    """ Prepare the time-dependent (td) link travel time (tt) file for TDSP API."""
+    INTERVAL_SPACING = config['time_factors']['INTERVAL_SPACING']
+    NUM_INTERVALS = config['time_factors']['NUM_INTERVALS']
     interval_columns = [f'i{i}' for i in range(NUM_INTERVALS)]
     td_link_tt = np.around(df_tt_dynamic[interval_columns].values.astype('float') / INTERVAL_SPACING)
     # replace zeros with ones (because zeros can mess up TDSP computation)
@@ -103,15 +99,12 @@ def prepare_tt_file(tdsp_folder, linkID_arr, df_tt_dynamic):
     f.writelines(log)
     f.close()
 
-def prepare_gtc_file(tdsp_folder, filename, linkID_arr, gtc_arr):
-    ### Create time-dep (td) link cost array
-    #filename = 'td_link_cost'
-    NUM_INTERVALS = conf.NUM_INTERVALS
-
+def prepare_gtc_file(config, tdsp_folder, filename, linkID_arr, gtc_arr):
+    """ Prepare file of the time-dependent generalized travel cost (gtc) of graph links for TDSP API."""
+    NUM_INTERVALS = config['time_factors']['NUM_INTERVALS']
     ##linkID_arr = df_G['linkID'].to_numpy().reshape((-1,1))
     td_link_cost = np.hstack((linkID_arr, gtc_arr))
     # save as plain txt
-    ##filename = 'td_link_cost'
     np.savetxt(tdsp_folder / filename, td_link_cost, fmt='%d ' + (NUM_INTERVALS-1)*'%f ' + '%f')
     f = open(tdsp_folder / filename, 'r')
     log = f.readlines()
@@ -121,18 +114,20 @@ def prepare_gtc_file(tdsp_folder, filename, linkID_arr, gtc_arr):
     f.writelines(log)
     f.close()
 
-def prepare_tdsp_api(G, BETAS, tdsp_folder, link_cost_filename):
+def prepare_tdsp_api(config, G, BETAS, tdsp_folder, link_cost_filename):
+    """ Prepare the TDSP API by creating necessary input files and initializing the API."""
+    
     '''Inputs: graph, beta parameters, tdsp_folder to store data, link cost filename.
        Output: tdsp_api, mapping dict from node ID (key) to node name (value)'''
     # Parameters
-    NUM_INTERVALS = conf.NUM_INTERVALS  
+    NUM_INTERVALS = config['time_factors']['NUM_INTERVALS'] 
     interval_columns = [f'i{i}' for i in range(NUM_INTERVALS)]
 
     # Get graph
     # Get all time-dep edge costs
     df_tt_dynamic, df_rel_dynamic, df_price_dynamic, df_risk_dynamic, df_disc_dynamic = costs.edges.dynamic.assign_edge_costs(G)
     # Get time-dep node costs
-    df_node_cost_dynamic = costs.nodes.dynamic.get_node_cost_df(G, conf.NUM_INTERVALS)
+    df_node_cost_dynamic = costs.nodes.dynamic.get_node_cost_df(G)
 
     # Prepare tdsp files and get link and node IDs
     df_G = prepare_graph_file(tdsp_folder, G)
@@ -143,26 +138,26 @@ def prepare_tdsp_api(G, BETAS, tdsp_folder, link_cost_filename):
     
     ### Create tt file 
     linkID_arr = df_G['linkID'].to_numpy().reshape((-1,1))
-    prepare_tt_file(tdsp_folder, linkID_arr, df_tt_dynamic)
+    prepare_tt_file(config, tdsp_folder, linkID_arr, df_tt_dynamic)
     
     ### Create node files
     df_node_cost_dynamic['node_id_via'] = df_node_cost_dynamic['node_via'].map(lambda x: inv_nid_map[x]) 
     df_node_cost_dynamic['link_in'] = tuple(zip(df_node_cost_dynamic['node_from'], df_node_cost_dynamic['node_via']))
     df_node_cost_dynamic['link_out'] = tuple(zip(df_node_cost_dynamic['node_via'], df_node_cost_dynamic['node_to']))
     df_node_cost_dynamic[['linkID_in', 'linkID_out']] = df_node_cost_dynamic[['link_in', 'link_out']].applymap(lambda x: inv_linkID_map[x])
-    sp.prepare_node_files(tdsp_folder, df_node_cost_dynamic)
+    sp.prepare_node_files(config, tdsp_folder, df_node_cost_dynamic)
     
     ### Prepare gtc file
     gtc_arr = BETAS['tt'] * df_tt_dynamic[interval_columns].values.astype(np.float16) + BETAS['rel'] * df_rel_dynamic[interval_columns].values.astype(np.float16) + BETAS['x'] * df_price_dynamic[interval_columns].values.astype(np.float16) + BETAS['risk'] * df_risk_dynamic[interval_columns].values.astype(np.float16) + BETAS['disc'] * df_disc_dynamic[interval_columns].values.astype(np.float16)
-    prepare_gtc_file(tdsp_folder, link_cost_filename, linkID_arr, gtc_arr)
+    prepare_gtc_file(config, tdsp_folder, link_cost_filename, linkID_arr, gtc_arr)
     
     ### Edit the config file
     num_rows_link_file = len(df_G)
     num_rows_node_file = len(df_node_cost_dynamic)
-    edit_config(tdsp_folder, 'graph', num_rows_link_file, num_rows_node_file)
+    write_config(tdsp_folder, 'graph', num_rows_link_file, num_rows_node_file)
 
     # Invoke TDSP api from mac-posts
-    tdsp_api = MNMAPI.tdsp_api()
+    tdsp_api = macposts.tdsp_api()
     tdsp_api.initialize(str(tdsp_folder), NUM_INTERVALS, len(df_G), len(df_node_cost_dynamic))
     tdsp_api.read_td_cost_txt(str(tdsp_folder), 'td_link_tt', 'td_node_cost', link_cost_filename, 'td_node_cost')
 

@@ -1,18 +1,15 @@
-# libraries
+""" Module to build carshare graph """
 import geopandas as gpd
 import pandas as pd
-import matplotlib.pyplot as plt
 import networkx as nx 
 from shapely import wkt
-#import unimodal_graphs.utility_functions as utils
 
 from nomad import utils
 
 def build_graph(G_drive, study_area_path, carshare_station_path, parking_nodes_path):
-    '''summary here'''
+    """ Build carshare graph from driving graph and carshare depot (station) locations and parking nodes"""
 
-    # read data which was obtained from Google MyMaps
-    #filepath = os.path.join(cwd,'Data','Input_Data','Zipcar_Depot.csv')
+    # Read data which was obtained from Google MyMaps
     df_zip = pd.read_csv(carshare_station_path)
     gdf_zip = gpd.GeoDataFrame(data=df_zip, geometry=df_zip['WKT'].apply(wkt.loads), crs='EPSG:4326').reset_index()[['index','geometry']]
     gdf_zip['pos'] = tuple(zip(gdf_zip.geometry.x, gdf_zip.geometry.y)) # add position
@@ -20,33 +17,26 @@ def build_graph(G_drive, study_area_path, carshare_station_path, parking_nodes_p
     study_area_gdf = gpd.read_file(study_area_path)
     gdf_zip_clip = gpd.clip(gdf_zip, study_area_gdf)
 
-    # steps: copy the driving graph. add parking cnx edges. add zip depot cnx edges
+    # Copy the driving graph and add edge/node attributes
     G_cs = G_drive.copy()
     G_cs = utils.rename_nodes(G_cs, 'z')
     nx.set_node_attributes(G_cs, 'z', 'nwk_type')
     nx.set_node_attributes(G_cs, 'z', 'node_type')
     nx.set_edge_attributes(G_cs, 'z', 'mode_type')
 
-    # join parking nodes and connection edges to the carshare network
+    # Add parking nodes and parking cnx edge (connect each parking node to nearest driving intersection node)
     gdf_parking_nodes = gpd.read_file(parking_nodes_path)
     gdf_parking_nodes['pos'] = tuple(zip(gdf_parking_nodes['longitude'], gdf_parking_nodes['latitude']))  # add position
     gdf_parking_nodes.insert(0, 'id', gdf_parking_nodes.index)  # add ID to each parking node
-    # create df for driving nodes
     gdf_drive_nodes = utils.create_gdf_nodes(G_drive)
-    # then connect each parking node to nearest driving intersection node (TODO: change to "both")
     G_cs = utils.add_station_cnx_edges(G_cs, gdf_parking_nodes, gdf_drive_nodes, 'kz', 'z', 'to_depot')
-    # also connect each carshare station node to nearest driving intersection node (TODO: change to "both")
+
+    # Connect each carshare station node to nearest driving intersection node with a connection edge
     G_cs = utils.add_station_cnx_edges(G_cs, gdf_zip_clip, gdf_drive_nodes, 'zd', 'z', 'from_depot')
 
-    # rename mode_type of parking edges
+    # Rename mode_type of parking edges
     for e in G_cs.edges:
         if e[1].startswith('k'):
             G_cs.edges[e]['mode_type'] = 'park'
-            
-    # plot for visualization
-    # node_color = ['blue' if n.startswith('zd') else 'red' if n.startswith('k') else 'black' for n in G_cs.nodes]
-    # edge_color = ['grey' if e[0].startswith('z') and e[1].startswith('z') else 'magenta' for e in G_cs.edges]
-    # ax = utils.draw_graph(G_cs, node_color, {'road intersection':'black', 'depot':'blue', 'park':'red'}, edge_color, 'solid')
-    # ax.set_title('Personal Vehicle Network')
 
     return(G_cs)

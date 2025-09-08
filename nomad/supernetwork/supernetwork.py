@@ -8,7 +8,6 @@ from shapely import Point
 import geopandas as gpd
 
 from nomad import utils
-from nomad import conf
 
 def nn(dist_to_all_nodes, nid_map, travel_mode):
     '''Find the nearest neighbor of a given node, when provided the distance matrix from that node to all other nodes.
@@ -27,9 +26,10 @@ def nn(dist_to_all_nodes, nid_map, travel_mode):
     return (original_nn_id, original_nn_name, nn_dist)
 
 class Supernetwork:
-    def __init__(self, unimodal_graphs, fix_pre, flex_pre):
+    def __init__(self, config, unimodal_graphs, fix_pre, flex_pre):
         '''Union all the unimodal graphs. Define which nodes are fixed and flex for purpose of creating transfer edges in add_transfer_edges().'''
-        #self.networks = unimodal_graphs
+        # Assign the config file
+        self.config = config
         # Convert each graph to MultiDiGraph if not already
         self.networks = [nx.MultiDiGraph(g) if not isinstance(g, nx.MultiDiGraph) else g for g in unimodal_graphs]
         
@@ -38,7 +38,7 @@ class Supernetwork:
         # Union all the MultiDiGraphs
         self.graph = nx.union_all(self.networks)
         self.fix_pre = fix_pre  # which *nodes* are fixed in the supernetwork
-        self.flex_pre = flex_pre   # which *nodes* are flex in the supernewtork
+        self.flex_pre = flex_pre   # which *nodes* are flex in the supernetwork
     
     def save_graph(self, output_path):
         with open(output_path, 'wb') as outp:
@@ -77,12 +77,12 @@ class Supernetwork:
         '''Define the permitted mode changes within the supernetwork.'''
         self.pmx = pmx
 
-    def add_transfer_edges(self, W, config):
+    def add_transfer_edges(self, W):
         '''See: Algorithm 1, Graff et al. (2024).
            config contains parameters for scooter simulation. We must simulate scooter location data in the absence of real data.
         '''
         # Generate scooter transfer data, assuming real data unavailable
-        sc_costs = utils.generate_data(self, config)
+        sc_costs = utils.generate_data(self)
     
         etype = 'transfer'
         trans_edges = {}
@@ -220,20 +220,20 @@ class Supernetwork:
         self.coord_matrix = np.vstack((self.coord_matrix, org_nodes, dst_nodes))
         self.add_gcd_dist_matrix() 
 
-    def add_org_cnx(self, org_coords, config):
+    def add_org_cnx(self, org_coords):
         '''Add origin connection edges to the graph of the supernetwork object.'''
         nid_map = self.nid_map
         coord_matrix = self.coord_matrix  # twait nodes are not added to nid map *at this stage*. nor are the orgs
         
         # First generate all scooter data (assuming true data is unavailable)
-        sc_costs = utils.generate_data(self, config, od_cnx=True) 
+        sc_costs = utils.generate_data(self, od_cnx=True) 
         
         # Add the org connectors
         for i, o_coord in enumerate(list(org_coords)):   # o_coords is an n x 2 numpy array
             org_cnx_edges = {} # dict whose key is the org cnx edge and value is the edge's attribute dict
             dist_to_all_nodes = utils.calc_great_circle_dist(np.array(o_coord), coord_matrix) # dist from org to modal graph nodes
             i_name = 'org' + str(i)
-            W_od_cnx = conf.W_od_cnx * conf.MILE_TO_METERS
+            W_od_cnx = self.config['supernetwork']['W_od_cnx'] * self.config['conversion_factors']['MILE_TO_METERS'] 
             catch = np.where(dist_to_all_nodes <= W_od_cnx)[0].tolist()
 
             #print('-----')
@@ -245,8 +245,6 @@ class Supernetwork:
                     if ((utils.mode(j_name) == 'k') | (utils.mode(j_name) == 'kz')):   
                         continue  # exceptions 2 and 5
                     edge = (i_name, j_name)  # build org connector
-                    #walk_time = (dist_to_all_nodes[j] / conf.config_data['Speed_Params']['walk'])  # walking traversal time [sec] of edge
-                    #wait_time = 0 
                     # note that wait time is not included. this is because we're dealing with fixed modes. only TNC has wait time
                     # wait time for PT is embedded in alighting edges
                     attr_dict = {'length_m':dist_to_all_nodes[j], 'mode_type':'w', 'etype':'od_cnx'}
@@ -317,7 +315,7 @@ class Supernetwork:
             dst_cnx_edges = {}
             dist_to_all_nodes = utils.calc_great_circle_dist(np.array(d_coord), coord_matrix) # dist from org to modal graph node
             i_name = 'dst' + str(i)
-            W_od_cnx = conf.W_od_cnx * conf.MILE_TO_METERS 
+            W_od_cnx = self.config['supernetwork']['W_od_cnx'] * self.config['conversion_factors']['MILE_TO_METERS']
             catch = np.where(dist_to_all_nodes <= W_od_cnx)[0].tolist()
 
             #print('-----')
@@ -384,7 +382,7 @@ class Supernetwork:
         for i in range(len(org_coords)):
             od_dist_matrix[i,:] = utils.calc_great_circle_dist(np.array(org_coords)[i], np.array(dst_coords))
         # check: for each o-d pair, is their distance less than W_od? if so, build transfer directly
-        allowed_od_transfer = np.argwhere((od_dist_matrix * conf.CIRCUITY_FACTOR / conf.MILE_TO_METERS) <= conf.W_od)
+        allowed_od_transfer = np.argwhere((od_dist_matrix * self.config['CIRCUITY_FACTOR'] / self.config['conversion_factors']['MILE_TO_METERS']) <= self.config['supernetwork']['W_od'])
         od_cnx_edges = []
         for o,d in allowed_od_transfer:
             attr_dict = {'length_m': od_dist_matrix[o,d], 'mode_type':'w', 'etype':'od_cnx'} 
@@ -398,14 +396,14 @@ class Supernetwork:
             self.nid_map[max(self.nid_map.keys())+1] = tw
 
     @classmethod
-    def from_graphs_dict(cls, all_graphs_dict, modes_included, config):
+    def from_graphs_dict(cls, config, all_graphs_dict, modes_included):
         """
         Create a Supernetwork from a dictionary of graphs and included modes.
         
         Parameters:
         all_graphs_dict (dict): Dictionary mapping mode types to their corresponding graphs.
         modes_included (list): List of modes to include in the supernetwork.
-        config (dict): Configuration dictionary.
+        config (dict): Configuration dictionary with parameters for building the supernetwork.
         
         Returns:
         Supernetwork: An instance of the Supernetwork class.
@@ -436,7 +434,7 @@ class Supernetwork:
                ('kz','ps'),('kz','t'),('kz','bsd'),('kz','sc')]  
         
         # Initialize the network
-        G_sn = cls(graphs_included, fix_pre_included, flex_pre_included)
+        G_sn = cls(config, graphs_included, fix_pre_included, flex_pre_included)
         G_sn.print_mode_types()
         G_sn.add_coord_matrix()
         G_sn.add_gcd_dist_matrix()
@@ -444,8 +442,8 @@ class Supernetwork:
         G_sn.define_pmx(pmx)
         
         # Add transfer edges
-        W_tx = config['supernetwork']['W_tx'] * conf.MILE_TO_METERS
-        G_sn.add_transfer_edges(W_tx, config)
+        W_tx = config['supernetwork']['W_tx'] * config['conversion_factors']['MILE_TO_METERS']
+        G_sn.add_transfer_edges(W_tx)
         
         print('supernetwork built')      
         #G_sn.save_object(output_path)

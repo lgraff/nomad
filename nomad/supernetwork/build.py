@@ -33,7 +33,7 @@ def build_unimodals(config):
 
 def connect_unimodals(all_graphs_dict, modes_included, config):
     '''Construct a supernetwork object inclusive of the provided mode list.'''
-    G_sn = Supernetwork.from_graphs_dict(all_graphs_dict, modes_included, config)
+    G_sn = Supernetwork.from_graphs_dict(config, all_graphs_dict, modes_included)
     
     print('number of edges:', len(G_sn.graph.edges))
     return G_sn
@@ -50,13 +50,13 @@ def get_node_idx2geo_dict(node_gdf, node_prefix, geoid_start):
     node_idx2geo_dict = dict(zip(node_idxs, node_geos)) 
     return node_idx2geo_dict
 
-def add_od_cnx(G_sn, org_centroids_gdf, dst_centroids_gdf, config):
+def add_od_cnx(G_sn, org_centroids_gdf, dst_centroids_gdf):
     '''Add orgs, dsts, and od connection edges to the graph of the supernetwork object.'''
     org_coords = org_centroids_gdf[['x','y']].to_numpy()  # convert org centroids to numpy array
     dst_coords = dst_centroids_gdf[['x','y']].to_numpy()  # convert dst centroids to numpy array
 
     G_sn.add_od_nodes(org_coords, dst_coords) 
-    G_sn.add_org_cnx(org_coords, config) 
+    G_sn.add_org_cnx(org_coords) 
     print('origin cnx built')
     G_sn.add_dst_cnx(dst_coords) 
     print('destination cnx built')
@@ -96,7 +96,7 @@ def build_supernetwork(config, modes_included, org_gdf, dst_gdf, output_path):
 
     # Connect unimodal graphs by transfer edges
     G_sn = connect_unimodals(all_graphs_dict, modes_included, config)  # Build full supernetwork inclusive of stated modes
-    add_od_cnx(G_sn, org_gdf, dst_gdf, config)
+    add_od_cnx(G_sn, org_gdf, dst_gdf)
 
     # Add microtransit edges
     if 'mt' in modes_included:

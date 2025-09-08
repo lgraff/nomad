@@ -2,17 +2,21 @@
 import pandas as pd
 import numpy as np
 
-from nomad import conf
 from nomad import costs
 
-def assign_edge_reliability(df_tt_dynamic, time_start, time_end, interval_spacing):
-    df_rel_ratio = pd.read_csv(conf.reliability_ratio_path)
-    df_rel_ratio_ext = costs.edges.dynamic.extend_inrix_data(df_rel_ratio, 'rel_ratio', time_start, time_end, interval_spacing).sort_values(by=['frc','sec_after_midnight']).reset_index(drop=True) 
+def assign_edge_reliability(config, df_tt_dynamic):
+    # Get params
+    time_start = config['time_factors']['TIME_START']  # e.g. 7*3600 for 7am
+    time_end = config['time_factors']['TIME_END']  # e.g. 9*3600 for 9am
+    interval_spacing = config['time_factors']['INTERVAL_SPACING']
+
+    df_rel_ratio = pd.read_csv(config['paths']['data']['reliability_ratio'])
+    df_rel_ratio_ext = costs.edges.dynamic.extend_inrix_data(config, df_rel_ratio, 'rel_ratio', time_start, time_end, interval_spacing).sort_values(by=['frc','sec_after_midnight']).reset_index(drop=True) 
 
     # Calculate by mode
     # Start with those who have a constant reliability factor (not dependent on time of day)
     interval_columns = [col for col in df_tt_dynamic.columns if col.startswith('i')]
-    rel_factors = {'alight':1, 't_wait': conf.TNC_WAIT_RELIABILITY, 'bs':1, 'sc':1, 'w':1}
+    rel_factors = {'alight':1, 't_wait': config['reliability']['TNC_WAIT'], 'bs':1, 'sc':1, 'w':1}
     df_dict = {}
     for mode, rel_factor in rel_factors.items():
         df_mode = df_tt_dynamic[df_tt_dynamic.mode_type == mode].reset_index(drop=True)
@@ -22,8 +26,8 @@ def assign_edge_reliability(df_tt_dynamic, time_start, time_end, interval_spacin
         df_rel_intervals = pd.concat([df_edge_info, df_intervals], axis=1)
         df_dict[mode] = df_rel_intervals
 
-    # For boarding edges: calculate reliability as the waiting time (as a function of dept time) + average headway / 2
-    df_static = pd.read_csv(conf.PT_headway_path_static)
+    # For boarding edges: calculate reliability as the waiting time (as a function of dept time) + average headway / 2; this is just an estimate in the absence of real data
+    df_static = pd.read_csv(config['paths']['data']['PT_headway_static'])
     df_static['route_id_abbr'] = 'rt' + df_static['stop_id'] + '_' + df_static['route_id'] + '_' + df_static['direction_id'].astype(str)
     df_board = df_tt_dynamic[df_tt_dynamic['mode_type'] == 'board'].copy()
     df_board['route_id_abbr'] = df_board['target'].str.rsplit('_',n=1).str[0]

@@ -255,14 +255,14 @@ def rename_mode_type(row):
     return edge_type
 
 
-def generate_data(G_super, config, od_cnx=False):
+def generate_data(G_super, od_cnx=False):
     """
     Generate historical location data for conf.NUM_DAYS (for scooters in particular, could also be used for other modes) in the absence of real data.
     Calculate mean and 95th percentile distance from each fixed node and its nearest scooter based on this simulated data.
     Return dict: {fixed_node_ID: {'length_m': [mean_length_val_meters], '95_length_m': [95th_percentile_length_val_meters]}
     """
     # Define the bounds
-    study_area_gdf = gpd.read_file(config['paths']['data']['study_area_out'])
+    study_area_gdf = gpd.read_file(G_super.config['paths']['data']['study_area_out'])
     bbox = study_area_gdf.bounds.iloc[0]
     xlb, xub, ylb, yub = bbox['minx'], bbox['maxx'], bbox['miny'], bbox['maxy']
     
@@ -282,19 +282,19 @@ def generate_data(G_super, config, od_cnx=False):
 
     for i in range(1):  # just do this once and reuse the results for all time intervals 
         obs = {}  # obs is a dict, where the key is the day, the value is an array of coordinates representing different observations
-        for j in range(config['scooter_simulation']['NUM_DAYS_OF_DATA']):  # each day
+        for j in range(G_super.config['scooter_simulation']['NUM_DAYS_OF_DATA']):  # each day
             # generate some random data: data is a coordinate matrix
             # the scooter observations should fit within the bounding box of the neighborhood mask polygon layer
             data = [(round(np.random.uniform(xlb, xub),8), 
-                     round(np.random.uniform(ylb, yub),8)) for k in range(int(config['scooter_simulation']['NUM_OBS']))]  
+                     round(np.random.uniform(ylb, yub),8)) for k in range(int(G_super.config['scooter_simulation']['NUM_OBS']))]  
             obs[j] = np.array(data)  
 
         # find edge cost
         node_cost_dict = {}
         for n in nid_map_fixed.values():  # for each fixed node (or, for the org/dst when generating for od_cnx)
-            all_min_dist = np.empty((1, config['scooter_simulation']['NUM_DAYS_OF_DATA']))  # initialize the min distance matrix, one entry per day
+            all_min_dist = np.empty((1, G_super.config['scooter_simulation']['NUM_DAYS_OF_DATA']))  # initialize the min distance matrix, one entry per day
                        
-            for d in range(config['scooter_simulation']['NUM_DAYS_OF_DATA']):  # how many days of historical scooter data we have                
+            for d in range(G_super.config['scooter_simulation']['NUM_DAYS_OF_DATA']):  # how many days of historical scooter data we have                
                 all_dist = calc_great_circle_dist(np.array(G_super.graph.nodes[n]['pos']), obs[d])  # dist from the fixed node to all observed scooter locations 
                 min_dist = np.min(all_dist)  # choose the scooter with min dist. assume a person always walks to nearest scooter
                 all_min_dist[0,d] = min_dist # for the given day, the dist from the fixed node to the nearest scooter is min_dist

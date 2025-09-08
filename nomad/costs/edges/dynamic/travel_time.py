@@ -3,21 +3,22 @@
 
 # libraries 
 
-import networkx as nx
 import re
 import pandas as pd
 import numpy as np
 
-from nomad import conf
-from nomad import utils
 from nomad import costs
 
-def assign_edge_travel_time(df_G, time_start, time_end, interval_spacing):
+def assign_edge_travel_time(config, df_G):
 # Note: 'avg_tt_sec' is the amount of time spent traversing a link assuming free flow speed. The start of the interval at 7am is assumed to be free flow
 # frcs: {0: active modes, 1: boarding, 2,3,4: vehicle modes}
 
-    #df_G = costs.edges.nx_to_df(G_sn)
-    df_tt_ratio = pd.read_csv(conf.travel_time_ratio_path)
+    # Get params
+    time_start = config['time_factors']['TIME_START']  # e.g. 7*3600 for 7am
+    time_end = config['time_factors']['TIME_END']  # e.g. 9*3600 for 9am
+    interval_spacing = config['time_factors']['INTERVAL_SPACING']
+
+    df_tt_ratio = pd.read_csv(config['paths']['data']['travel_time_ratio'])
 
     # special case: PUBLIC TRANSIT BOARDING. 
     df_boarding = df_G[df_G.mode_type == 'board'][['source','target','mode_type','length_m']]
@@ -27,7 +28,7 @@ def assign_edge_travel_time(df_G, time_start, time_end, interval_spacing):
     df_boarding = df_boarding[['source','target','mode_type','route_id','direction_id','stop_id']]
 
     col_dtypes = {'route_id':str, 'direction_id':str, 'stop_id':str, 'traveler_arrival_time':np.int64, 'headway':np.int64}
-    processed_headway = pd.read_csv(conf.PT_headway_path_dynamic, dtype=col_dtypes)
+    processed_headway = pd.read_csv(config['paths']['data']['PT_headway_dynamic'], dtype=col_dtypes)
     df_boarding_headway = df_boarding.merge(processed_headway, how='inner', on=['route_id','direction_id','stop_id'])
 
     arr_times = df_boarding_headway.traveler_arrival_time.unique().tolist()
@@ -47,7 +48,7 @@ def assign_edge_travel_time(df_G, time_start, time_end, interval_spacing):
     df_pt_trav['frc'] = 2 # assumption
 
     df_alight = df_G[df_G.mode_type == 'alight'][['source','target','mode_type','length_m']].reset_index(drop=True)
-    df_alight['avg_tt_sec'] = conf.ALIGHTING_TIME  # sec, can be changed if desired
+    df_alight['avg_tt_sec'] = config['speed']['ALIGHTING_TIME']  # sec, can be changed if desired
     df_alight['mode_type'] = 'alight'
     df_alight['frc'] = np.nan # placeholder
 
@@ -55,11 +56,11 @@ def assign_edge_travel_time(df_G, time_start, time_end, interval_spacing):
     df_tz = df_G[df_G.mode_type.isin(['z','t','park'])][['source','target','mode_type','length_m','speed_lim','frc']]
     df_tz = df_tz.sort_values(by='frc').reset_index(drop=True)
     df_tz['frc'] = df_tz['frc'].astype('int')
-    df_tz['avg_tt_sec'] = df_tz['length_m'] / (df_tz['speed_lim'] * conf.MILE_TO_METERS / 3600)
+    df_tz['avg_tt_sec'] = df_tz['length_m'] / (df_tz['speed_lim'] * config['conversion_factors']['MILE_TO_METERS'] / 3600)
 
     # tnc waiting mode
     df_twait = df_G[df_G.mode_type.isin(['t_wait'])].reset_index(drop=True)[['source','target','length_m']]
-    df_twait['avg_tt_sec'] = conf.TNC_WAIT_TIME * 60  # wait time in sec
+    df_twait['avg_tt_sec'] = config['speed']['TNC_WAIT_TIME'] * 60  # wait time in sec
     df_twait['mode_type'] = 't_wait'
     df_twait['frc'] = np.nan # placeholder
 
@@ -67,13 +68,13 @@ def assign_edge_travel_time(df_G, time_start, time_end, interval_spacing):
     # inherent assumption is that they are not affected by traffic conditions 
     df_active = df_G[df_G.mode_type.isin(['bs','sc','w'])][['source','target','mode_type','etype','length_m']].reset_index(drop=True)  # maybe also keep frc
     # adjust euclidean walking distance by a circuity factor (see: circuity factor, levinson)
-    circuity_factor = conf.CIRCUITY_FACTOR
+    circuity_factor = config['CIRCUITY_FACTOR']
     df_active.loc[df_active['mode_type'] == 'w', 'length_m'] = circuity_factor * df_active.loc[df_active['mode_type'] == 'w', 'length_m']
-    speeds = {'bs':conf.BIKE_SPEED, 'sc':conf.SCOOT_SPEED, 'w':conf.WALK_SPEED}
+    speeds = {'bs':config['speed']['BIKE_SPEED'], 'sc':config['speed']['SCOOT_SPEED'], 'w':config['speed']['WALK_SPEED']}
     df_active['speed'] = df_active['mode_type'].map(speeds)
     df_active['avg_tt_sec'] = df_active['length_m'] / df_active['speed']
     # add an inconvenience cost (in units of travel time) associated with transferring
-    inc = conf.INCONVENIENCE_COST # minutes
+    inc = config['INCONVENIENCE_COST'] # minutes
     df_active.loc[df_active.etype=='transfer', 'avg_tt_sec'] =  df_active.loc[df_active.etype=='transfer', 'avg_tt_sec'] + (inc*60)
     df_active['frc'] = np.nan # placeholder
 
@@ -81,7 +82,7 @@ def assign_edge_travel_time(df_G, time_start, time_end, interval_spacing):
     cols_keep = ['source','target','mode_type','length_m','frc','avg_tt_sec']   
     df_cost = pd.concat([df_pt_trav[cols_keep], df_alight[cols_keep], df_tz[cols_keep], df_twait[cols_keep], df_active[cols_keep]], axis=0).sort_values(by=['source','target'])
 
-    df_tt_ratio_ext = costs.edges.dynamic.extend_inrix_data(df_tt_ratio, 'tt_ratio', time_start, time_end, interval_spacing).sort_values(by=['frc','sec_after_midnight']).reset_index(drop=True)  # extend the data 
+    df_tt_ratio_ext = costs.edges.dynamic.extend_inrix_data(config, df_tt_ratio, 'tt_ratio', time_start, time_end, interval_spacing).sort_values(by=['frc','sec_after_midnight']).reset_index(drop=True)  # extend the data 
     
     # Get time-dependent travel time. Take 7am free flow travel time (called 'avg_tt_sec') and multiply by the travel time ratio relative to 7am
     # e.g. if 7am travel time is 10 sec and 7:05am ratio is 1.1, then 7:05am travel time is 10 & 1.1 = 11 sec

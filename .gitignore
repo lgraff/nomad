@@ -19,15 +19,27 @@ nomad/data/network/processed/headway_dynamic.csv
 
 # PROJECT 1
 # ignore files in folder
-project1-use_cases/tdsp_files_pt/*
-project1-use_cases/tdsp_files_pt_bs/*
-project1-use_cases/tdsp_files_sn/*
+project1-use_cases/data/network/raw/*
+project1-use_cases/data/demographics/raw/*
+project1-use_cases/data/network/processed/*
+project1-use_cases/data/demographics/processed/*
+
+project1-use_cases/experiment_output/tdsp_files_pt/*
+project1-use_cases/experiment_output/tdsp_files_pt_bs/*
+project1-use_cases/experiment_output/tdsp_files_sn/*
+
 project1-use_cases/graphs/*
 
 # ...but keep the folder
-!project1-use_cases/tdsp_files_pt/.gitkeep
-!project1-use_cases/tdsp_files_pt_bs/.gitkeep
-!project1-use_cases/tdsp_files_sn/.gitkeep
+!project1-use_cases/data/network/raw/.gitkeep
+!project1-use_cases/data/demographics/raw/.gitkeep
+!project1-use_cases/data/network/processed/.gitkeep
+!project1-use_cases/data/demographics/processed/.gitkeep
+
+!project1-use_cases/experiment_output/tdsp_files_pt/.gitkeep
+!project1-use_cases/experiment_output/tdsp_files_pt_bs/.gitkeep
+!project1-use_cases/experiment_output/tdsp_files_sn/.gitkeep
+
 !project1-use_cases/graphs/.gitkeep
 
 project1-use_cases/od_matrix_pt.csv

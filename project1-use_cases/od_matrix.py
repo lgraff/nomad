@@ -1,3 +1,4 @@
+"""Get time-dependent OD matrix by calling TDSP API for different destinations in parallel."""
 
 from pathlib import Path
 import pickle
@@ -6,7 +7,7 @@ import multiprocessing as mp
 import functools
 import csv
 
-sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '.')))
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
 from nomad import shortest_path as sp
 from nomad import costs
 
@@ -50,15 +51,15 @@ def process_dsts(orgID_list, dstID_list, timestamp_window):
     print(dstID_list, 'complete')
     return tdsp_data
 
-def write_data(data, header, filename):
+def write_data(data, header, filepath_out):
     '''Write data to .csv file.'''
-    with open(filename, 'w') as csvfile:
+    with open(filepath_out, 'w') as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(header) # header
         csvwriter.writerows(data)
 
-def calc_td_od_matrix(G, tdsp_folder, vot, BETAS, td_link_cost_filename, od_matrix_filename):
-    tdsp_api = sp.prepare_tdsp_api(G, BETAS, tdsp_folder, td_link_cost_filename)
+def calc_td_od_matrix(G, tdsp_folder, vot, BETAS, td_link_cost_filename, filepath_out):
+    tdsp_api = sp.prepare_tdsp_api(G.config, G, BETAS, tdsp_folder, td_link_cost_filename)
     nid_map = get_nid_map(G)
     inv_nid_map = dict(zip(nid_map.values(), nid_map.keys()))
     orgID_list = get_orgIDs(G, inv_nid_map)
@@ -74,7 +75,7 @@ def calc_td_od_matrix(G, tdsp_folder, vot, BETAS, td_link_cost_filename, od_matr
 
     header = ['org', 'dst', 'vot', 'timestamp', 'node_seq', 'link_seq', 'gtc_tot', 'tt_tot']
     tdsp_data_lists = [item for sublist in tdsp_data for item in sublist]
-    write_data(tdsp_data_lists, header, od_matrix_filename)
+    write_data(tdsp_data_lists, header, filepath_out)
 
 if __name__ == "__main__":
     # Parameters
@@ -89,14 +90,14 @@ if __name__ == "__main__":
     
     mode_list = ['pt', 'pt_bs']
     for m in mode_list:
-        try:
-            # Read in the supernetwork as an object
-            graph_path = Path().resolve() / 'project1-use_cases' / f'graph_{m}.pkl'
-            with open(graph_path, 'rb') as inp:
-                G = pickle.load(inp)
+        # Read in the supernetwork as an object
+        graph_path = Path().resolve() / 'graphs' / f'graph_{m}.pkl'
+        with open(graph_path, 'rb') as inp:
+            G = pickle.load(inp)
 
-            tdsp_folder = Path().resolve() / 'project1-use_cases' / f'tdsp_files_{m}'  # Folder that stores TDSP files for each of the graphs
-            calc_td_od_matrix(G, tdsp_folder, vot, BETAS, 'td_link_cost_' + str(vot), 'od_matrix_' + m + '.csv')  # Calculate the time-dep OD matrix
-        
-        except:
-            print('Error processing mode ', m)
+        tdsp_folder = Path().resolve() / 'experiment_output' / f'tdsp_files_{m}'  # Folder that stores TDSP files for each of the graphs
+        filepath = tdsp_folder / f"od_matrix_{m}.csv"
+        calc_td_od_matrix(G, tdsp_folder, vot, BETAS, 'td_link_cost_' + str(vot), filepath)  # Calculate the time-dep OD matrix
+    
+        # except:
+        #     print('Error processing mode ', m)

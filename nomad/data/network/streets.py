@@ -28,7 +28,6 @@ import copy
 import matplotlib.pyplot as plt
 #import util_functions as ut
 import gc
-from nomad import conf
 
 def get_nearest(src_point, candidates, k_neighbors=1):
     """Find nearest neighbors for all source points from a set of candidate points.

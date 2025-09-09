@@ -1,4 +1,3 @@
-from nomad import conf
 
 def assign_edge_discomfort(df_cost, config):
     '''Assign discomfort to each edge. Return df, keyed by edge, with discomfort time as an attribute.'''

@@ -15,8 +15,6 @@ import os
 import pickle 
 import ckanapi
 
-from nomad import conf
-
 
 # https://autogis-site.readthedocs.io/en/latest/notebooks/L3/06_nearest-neighbor-faster.html
 def get_nearest(src_points, candidates, k_neighbors=1):
@@ -329,11 +327,13 @@ def generate_data(G_super, od_cnx=False):
 def get_cost_subsets(mode_subset, df_edge_cost, df_node_cost):
     '''Create edge and node cost subsets, only inclusive of the edges and nodes corresponding to the selected mode combination.
        Return: a subset of the edge cost df; a subset of the node cost df.'''
-    # Edge cost subset
-    edges_include = list(itertools.chain(*[conf.modes_to_edge_type[m] for m in mode_subset])) + ['w']
+    # 1) Edge cost subset
+    # Define which edge types are associated with each mode type
+    modes_to_edge_type = {'pt': ['board','pt','alight'], 'z': ['z','park'], 'tnc':['t','t_wait'], 'walk':['w'], 'sc': ['sc'], 'bs': ['bs'], 'mt':['mt']}
+    edges_include = list(itertools.chain(*[modes_to_edge_type[m] for m in mode_subset])) + ['w']
     df_edge_cost_subset = df_edge_cost[df_edge_cost['mode_type'].isin(edges_include)].copy() # filter the df_edge_cost_subset by the included modes/edges
     df_edge_cost_subset['edge'] = tuple(zip(df_edge_cost_subset.source, df_edge_cost_subset.target))  # add the edge as a tuple
-    # Node cost subset
+    # 2) Node cost subset
     nodes = set(df_edge_cost_subset.source.unique().tolist() + df_edge_cost_subset.target.unique().tolist())  # node set
     df_node_cost_subset = df_node_cost[((df_node_cost['node_from'].isin(nodes)) & (df_node_cost['node_via'].isin(nodes)) & (df_node_cost['node_to'].isin(nodes)))]
 
@@ -373,3 +373,66 @@ def get_node_cost_idx(df_node_cost, name2idx):
     
     # Return a dictionary mapping the keys to their corresponding costs
     return dict(zip(node_cost_dict_keys, node_cost_dict_vals))
+
+
+
+def load_graph(graph_path):
+    with open(graph_path, 'rb') as inp:
+        return pickle.load(inp)
+
+def nx_to_df(G):
+    '''Convert supernetwork object to pandas df, keyed by edge. Do minimal processing.'''
+
+    # Convert the supernetwork object to a pandas df, keyed by the edge. Columns are edge attributes.
+    df_G = nx.to_pandas_edgelist(G.graph)
+    # Add the node type of each edge's source and target
+    df_G['source_node_type'] = df_G['source'].map(lambda x: re.sub('[^a-zA-Z]+', '', x[:3]))  # only the first 3 characters is a hack to avoid rtL, rtA, etc.
+    df_G['target_node_type'] = df_G['target'].map(lambda x: re.sub('[^a-zA-Z]+', '', x[:3]))
+    df_G['edge_type'] = df_G.apply(rename_mode_type, axis=1) # get the type of the edge (e.g., bs, park, od_cnx) based on source and target nodes
+
+    # Impute frc and speed_limit data for connection, walking, and microtransit edges. This is necessary to establish predicted crash risk.
+    df_G.loc[df_G['edge_type'].isin(['bs_cnx', 'z_cnx', 'park']), 'frc'] = 4        # assume frc=4 for connection edges
+    df_G.loc[df_G['edge_type'].isin(['bs_cnx', 'z_cnx', 'park']), 'speed_lim'] = 5  # assume speedlim=5 mph for connection eges
+    df_G.loc[df_G['mode_type'] == 'w', 'frc'] = 4                                   # assume frc=4 for walk edges --> local connecting roads
+    df_G.loc[df_G['mode_type'] == 'w', 'speed_lim'] = 25                            # assume pedestrians walk on street edges with speedlim=25 mph
+    df_G.loc[df_G['mode_type'] == 'mt', ['speed_lim', 'frc']] = [25, 3]   
+    df_G['const'] = 1
+
+    # Impute length=0 for board, alight, and t_wait edges. This serves as a placeholder for downstream calculations
+    df_G.loc[df_G['mode_type'].isin(['board','alight','t_wait']), 'length_m'] = 0
+    
+    # Estimate a length for pt traversal edges. This is necessary for risk and discomfort calculations 
+    high_speed_idx = (df_G['mode_type'] == 'pt') & ((df_G['length_m'] / df_G['avg_tt_sec'] > 13.4))
+    df_G.loc[high_speed_idx, 'length_m'] = df_G.loc[high_speed_idx]['avg_tt_sec'] * 13.4    # 30 mph = 13.4 m/s
+
+    return df_G
+
+def build_mappings(G):
+    """
+    Build node and edge ID mappings for the supernetwork.
+    
+    Parameters
+    ----------
+    G : networkx graph
+
+    Returns
+    -------
+    nid_map : dict[int, hashable]
+        Node index -> node ID mapping.
+    inv_nid_map : dict[hashable, int]
+        Node ID -> node index mapping.
+    linkID_map : dict[int, tuple]
+        Edge index -> (source, target).
+    inv_linkID_map : dict[tuple, int]
+        (source, target) -> edge index.
+    """
+    df_edges = nx_to_df(G)
+    node_set = sorted(set(df_edges['source']).union(df_edges['target']))
+    nid_map = dict(zip(range(len(node_set)), node_set))
+    inv_nid_map = {v: k for k, v in nid_map.items()}
+
+    linkID_map = dict(zip(df_edges.index,
+                          zip(df_edges['source'], df_edges['target'])))
+    inv_linkID_map = {v: k for k, v in linkID_map.items()}
+
+    return nid_map, inv_nid_map, linkID_map, inv_linkID_map

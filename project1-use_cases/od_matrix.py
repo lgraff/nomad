@@ -8,11 +8,11 @@ import functools
 import csv
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
+from nomad import utils
 from nomad import shortest_path as sp
-from nomad import costs
 
 def get_nid_map(G):
-    df_edge_info = costs.edges.nx_to_df(G)
+    df_edge_info = utils.nx_to_df(G)
     node_set = sorted(list(set(df_edge_info['source']).union(set(df_edge_info['target']))))
     nid_map = dict(zip(range(len(node_set)), node_set))
     return nid_map
@@ -79,14 +79,14 @@ def calc_td_od_matrix(G, tdsp_folder, vot, BETAS, td_link_cost_filename, filepat
 
 if __name__ == "__main__":
     # Parameters
-    vot = 10
+    vot = 10  
     # beta weighting factors
     BETAS = {
-        'tt': vot/3600,
-        'rel': 10/3600,
-        'x': 1,
-        'risk': 20,
-        'disc': 0}
+        'tt': vot/3600,   # vot / hour
+        'rel': 10/3600,   # $ / hour
+        'x': 1,           # $ / $
+        'risk': 20,       # $ / crash / day
+        'disc': 0}        # $ / discomfort-weighted-km
     
     mode_list = ['pt', 'pt_bs']
     for m in mode_list:

@@ -5,9 +5,6 @@ import heapq
 import numpy as np
 import itertools
 
-from nomad import conf
-from nomad import shortest_path as sp
-
 
 def dijkstra(G, node_costs, weight_name, source, target):
     num_nodes = len(G.nodes)

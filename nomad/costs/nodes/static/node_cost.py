@@ -2,8 +2,6 @@
 import pandas as pd
 import numpy as np
 
-from nomad import conf
-
 def assign_node_costs(G_sn, config):
     '''
     --Create a node cost dict whose keys are of the form (node_from, node_via, node_to) and whose values are the node cost.

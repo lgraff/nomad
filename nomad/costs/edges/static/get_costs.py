@@ -1,11 +1,11 @@
 from nomad import costs
-from nomad import conf
+from nomad import utils
 
 def get_edge_cost_df(G_sn, betas, hour, minute, config):
     '''Add costs to the edges for the hour:minute departure time, adding all costs incrementally.'''
     
     # Get pandas df from nx supernetwork
-    df_G = costs.edges.nx_to_df(G_sn)
+    df_G = utils.nx_to_df(G_sn)
 
     # Assign edge costs sequentially
     df_tt = costs.edges.static.assign_edge_travel_time(df_G, hour, minute, config)

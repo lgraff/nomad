@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from nomad import conf
 
 def assign_edge_travel_time(df_G, hr, minute, config):
     '''Assign travel time cost to each edge at a given hr:min timestamp. Return df, keyed by edge, with travel time as an attribute.'''
@@ -42,7 +41,7 @@ def assign_edge_travel_time(df_G, hr, minute, config):
     df_tz = df_G[df_G.mode_type.isin(['z','t','park'])][['source','target','mode_type','length_m','speed_lim','frc']]
     df_tz = df_tz.sort_values(by='frc').reset_index(drop=True)
     df_tz['frc'] = df_tz['frc'].astype('int')
-    df_tz['avg_tt_sec'] = df_tz['length_m'] / (df_tz['speed_lim'] * conf.MILE_TO_METERS / 3600)
+    df_tz['avg_tt_sec'] = df_tz['length_m'] / (df_tz['speed_lim'] * config['conversion_factors']['MILE_TO_METERS'] / 3600)
 
     # tnc waiting mode
     df_twait = df_G[df_G.mode_type.isin(['t_wait'])].reset_index(drop=True)[['source','target']]
@@ -53,7 +52,7 @@ def assign_edge_travel_time(df_G, hr, minute, config):
     # OTHER MODES: bikeshare, scooter, walk, microtransit: We will do these modes together since the process is the same. Inherent assumption is that they are not affected by traffic conditions 
     df_other = df_G[df_G.mode_type.isin(['bs','sc','w','mt'])][['source','target','mode_type','etype','length_m']].reset_index(drop=True)  # maybe also keep frc
     # Convert Euclidean distance to network distance by adjusting by a circuity factor (see: circuity factor, levinson)
-    circuity_factor = conf.CIRCUITY_FACTOR
+    circuity_factor = config['CIRCUITY_FACTOR']
     mask = df_other['mode_type'].isin(['w', 'mt'])
     df_other.loc[mask, 'length_m'] *= circuity_factor
     speeds = {'bs':config['speed']['BIKE'], 'sc':config['speed']['SCOOT'], 'w':config['speed']['WALK'], 'mt':config['speed']['MICROTRANSIT']}

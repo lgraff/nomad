@@ -1,8 +1,5 @@
 
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from nomad import conf
 
 def add_time_cols(df, datetime_col):
     '''Extract month, day, hour, minute from datetime.'''

@@ -12,6 +12,7 @@ import numpy as np
 import pickle
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
+from nomad import utils
 from nomad import costs
 from nomad import shortest_path as sp
 from nomad.costs.nodes import dynamic
@@ -20,11 +21,14 @@ from conf import config
 # Params
 GRAPH_SN_PATH = Path().resolve() / 'graphs' / 'graph_sn.pkl'
 TDSP_FOLDER = Path().resolve() / 'experiment_output' / 'tdsp_files_sn'
-BETAS = {
-        'rel': 10 / 3600,
-        'x': 1,
-        'risk': 20,
-        'disc': 0
+
+# These betas are defined in the generalized travel cost function
+# rel = reliability; # x = monetary expense; # risk = crash risk; # disc = discomfort
+BETAS = {   
+        'rel': 10 / 3600,  # dollar / seconds
+        'x': 1,            # dollar / dollar
+        'risk': 20,        # dollar / crash / day
+        'disc': 0          # dollar / discomfort-weighted-kilometer
         }
 
 
@@ -33,7 +37,7 @@ def main():
     with open(GRAPH_SN_PATH, 'rb') as inp:
         G_sn = pickle.load(inp)
     
-    df_G = costs.edges.nx_to_df(G_sn).sort_values(by=['source', 'target', 'mode_type']).reset_index(drop=True)
+    df_G = utils.nx_to_df(G_sn).sort_values(by=['source', 'target', 'mode_type']).reset_index(drop=True)
 
     # Create graph file and get node/link IDs for subsequent use
     df_G = sp.prepare_graph_file(TDSP_FOLDER, G_sn)
@@ -84,6 +88,7 @@ def prepare_link_cost_files(BETAS, df_tt_dynamic, df_rel_dynamic, df_price_dynam
 
     prepare_gtc_file_sensitivity_partial = functools.partial(prepare_gtc_file_sensitivity, TDSP_FOLDER, linkID_arr, shm_gtc_arr, gtc_shape, gtc_dtype, shm_tt_arr, tt_shape, tt_dtype)
 
+    # List of VOTs (values of travel time) to process
     vot_list = list(range(0, 22, 2))
     with mp.Pool(processes=mp.cpu_count() - 16) as pool:
         pool.map(prepare_gtc_file_sensitivity_partial, vot_list)

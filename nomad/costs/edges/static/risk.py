@@ -1,7 +1,6 @@
 import statsmodels.api as sm
 import pandas as pd
 
-from nomad import conf
 
 def assign_edge_risk(df_G, df_cost, config):
     '''Establish risk (predicted crashes) using the crash model calibrated in streets.py.'''

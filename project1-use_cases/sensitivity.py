@@ -11,10 +11,9 @@ import multiprocessing as mp
 import pickle
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
-from nomad import costs
 from nomad import shortest_path as sp
+from nomad import utils
 import macposts
-from nomad.costs.nodes import dynamic
 
 from conf import config
 
@@ -24,11 +23,11 @@ ANALYSIS_TYPE = "vot"        # options: "vot" or "scooter_price"
 # Params
 GRAPH_SN_PATH = Path().resolve() / 'graphs' / 'graph_sn.pkl'
 TDSP_FOLDER = Path().resolve() / 'experiment_output' / 'tdsp_files_sn'
-MAX_INTERVAL = config['time_factors']['NUM_INTERVALS']  
+MAX_INTERVAL = config['time_factors']['NUM_INTERVALS'] 
 
 # For the experiments: choose orgs and dsts
-org_geo_list = ['1306002', '5648002', '1209002', '5623001', '5623003', '4838002']  # org geos of interest
-dst_geo = '9822001' #'0402002'  # dst geo of interest
+org_geo_list = ['1306002', '5648002', '1209002', '5623001', '5623003', '4838002']  # org geos of interest (TRACT + BLOCK_GROUP #)
+dst_geo = '9822001' #'0402002'  # dst geo of interest  (TRACT + BLOCK_GROUP #) = Central Oakland
 
 if ANALYSIS_TYPE == "vot":
     VOTS = list(range(0, 22, 2))  # Value of Time adjustments
@@ -47,11 +46,9 @@ else:
 
 def main():
     # Run sensitivity analysis for value-of-time (VOT) and scooter prices.
-    with open(GRAPH_SN_PATH, 'rb') as inp:
-        G_sn = pickle.load(inp)
+    G_sn = utils.load_graph(GRAPH_SN_PATH)  # Ensure graph is loaded
 
-    nid_map = get_nid_map(G_sn)
-    inv_nid_map = dict(zip(nid_map.values(), nid_map.keys()))
+    nid_map, inv_nid_map, _, _ = utils.build_mappings(G_sn)
 
     # Get params for MAC POSTS tdsp function
     filename = TDSP_FOLDER / 'td_link_cost_vot0'
@@ -115,12 +112,6 @@ def tdsp_sensitivity(TDSP_FOLDER, orgID_list, dstID, num_rows_link_file, num_row
     print(param, "is complete")
 
     return tdsp_data
-
-def get_nid_map(G_sn):
-    df_edge_info = costs.edges.nx_to_df(G_sn)
-    node_set = sorted(list(set(df_edge_info['source']).union(set(df_edge_info['target']))))
-    nid_map = dict(zip(range(len(node_set)), node_set))
-    return nid_map
 
 if __name__ == "__main__":
     main()

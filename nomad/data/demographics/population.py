@@ -3,8 +3,6 @@ from pathlib import Path
 import pandas as pd
 import geopandas as gpd
 
-from nomad import conf
-
 # extract fips code: https://www.census.gov/programs-surveys/geography/guidance/geo-identifiers.html
 # this function establishes the fips code for a census dataset where each row is uniquely defined by a string that contains state, county, block group, and tract 
 def generate_fips_code(df_census, fips_map):

@@ -2,6 +2,7 @@
 import numpy as np
 import macposts
 
+from nomad import utils
 from nomad import costs
 from nomad import shortest_path as sp
 from nomad.costs.nodes import dynamic
@@ -16,7 +17,7 @@ def write_config(folder, graph_name, num_rows_link_file, num_rows_node_file):
 
 def prepare_graph_file(tdsp_folder, G_sn):
     """ Prepare the graph topology file for TDSP API."""
-    df_G = costs.edges.nx_to_df(G_sn).sort_values(by=['source','target','mode_type']).reset_index(drop=True)
+    df_G = utils.nx_to_df(G_sn).sort_values(by=['source','target','mode_type']).reset_index(drop=True)
     df_G.rename(columns={'source':'source_named', 'target':'target_named'}, inplace=True)
     nid_map = get_nid_map(df_G)
     inv_nid_map = dict(zip(nid_map.values(), nid_map.keys()))

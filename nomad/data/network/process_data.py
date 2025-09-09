@@ -1,6 +1,6 @@
 # Libraries
 import os
-from nomad.data.network import parking, study_area, transit_headway, transit_traversal, vehicle_crashes, inrix, streets
+from nomad.data.network import parking, study_area, transit_headway, transit_traversal, vehicle_crashes, historical_travel_time, streets
 
 def process_data(config):
     """
@@ -46,8 +46,8 @@ def process_data(config):
     print('PT headway and traversal files created')
 
     # Construct travel time and reliability ratio dataframes
-    inrix.inrix_to_ratios(data_paths['inrix_travel_time'], data_paths['inrix_roadID'], int(TIME_START / 3600), int(TIME_END / 3600), data_paths['travel_time_ratio'], data_paths['reliability_ratio'])
-    print('INRIX data processed')
+    historical_travel_time.inrix_to_ratios(data_paths['inrix_travel_time'], data_paths['inrix_roadID'], int(TIME_START / 3600), int(TIME_END / 3600), data_paths['travel_time_ratio'], data_paths['reliability_ratio'])
+    print('Historical travel time data processed') 
 
     # Convert streets shapefile into two graphs (driving and biking), save them to disk
     streets.process_street_centerlines(data_paths['study_area_out'], data_paths['streets_shapefile'], data_paths['crash_sample'], data_paths['crash_model'],

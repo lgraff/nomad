@@ -42,8 +42,12 @@ project1-use_cases/graphs/*
 
 !project1-use_cases/graphs/.gitkeep
 
-project1-use_cases/od_matrix_pt.csv
-project1-use_cases/od_matrix_pt_bs.csv
+# Ignore experiment output files
+project1-use_cases/experiment_output/od_matrix_pt.csv.tar.gz
+project1-use_cases/experiment_output/od_matrix_pt_bs.csv.tar.gz
+project1-use_cases/experiment_output/tdsp_results_base_model_v0.csv
+project1-use_cases/experiment_output/tdsp_results_sc_prices_v0.csv
+
 
 # PROJECT 2
 # ignore files in folder

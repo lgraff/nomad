@@ -1,13 +1,11 @@
-import pickle
 
-from nomad import conf
 from nomad import costs
-
+from nomad import utils
 
 def assign_edge_costs(G_sn):
     config = G_sn.config
     
-    df_G = costs.edges.nx_to_df(G_sn)
+    df_G = utils.nx_to_df(G_sn)
 
     df_tt_dynamic = costs.edges.dynamic.assign_edge_travel_time(config, df_G)
     df_rel_dynamic = costs.edges.dynamic.assign_edge_reliability(config, df_tt_dynamic)  # derived from travel time

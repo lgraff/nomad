@@ -1,5 +1,4 @@
 import numpy as np
-from nomad import conf
 from nomad import shortest_path as sp
 
 '''*Note*: Shortest path = lowest generalized travel cost.'''

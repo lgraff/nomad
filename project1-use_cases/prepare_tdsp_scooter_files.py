@@ -8,6 +8,7 @@ import numpy as np
 import pickle
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
+from nomad import utils
 from nomad import costs
 from nomad import shortest_path as sp
 from nomad.costs.nodes import dynamic
@@ -30,7 +31,7 @@ def main():
     with open(GRAPH_SN_PATH, 'rb') as inp:
         G_sn = pickle.load(inp)
     
-    df_G = costs.edges.nx_to_df(G_sn).sort_values(by=['source', 'target', 'mode_type']).reset_index(drop=True)
+    df_G = utils.nx_to_df(G_sn).sort_values(by=['source', 'target', 'mode_type']).reset_index(drop=True)
 
     # Create graph file and get node/link IDs for subsequent use
     df_G = sp.prepare_graph_file(TDSP_FOLDER, G_sn)
@@ -53,7 +54,7 @@ def main():
     # Get the generalized travel cost array, not including the price component
     gtc_arr_no_price = BETAS['rel'] * df_rel_dynamic[interval_columns].values.astype(np.float16) + BETAS['tt'] * df_tt_dynamic[interval_columns].values.astype(np.float16) + BETAS['risk'] * df_risk_dynamic[interval_columns].values.astype(np.float16) + BETAS['disc'] * df_disc_dynamic[interval_columns].values.astype(np.float16)
 
-    # Prepare gtc files for different scooter prices
+    # Prepare gtc files for different scooter prices (scppmin = scooter price per minute)
     for sc_ppmin in [0.09, 0.14, 0.19, 0.24, 0.29, 0.34]:
         price_reduction_pct = (0.39 - sc_ppmin) / 0.39  # percent reduction in scoot link cost
         price_arr = df_price_dynamic[interval_columns].values.astype(np.float16).copy() 

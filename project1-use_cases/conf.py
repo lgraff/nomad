@@ -115,8 +115,8 @@ config = {
         'TIME_END': 9 * 3600,      # (must be in the form of seconds_after_midnight)
         'INTERVAL_SPACING': 10,    # sec
         #'NUM_INTERVALS': int((TIME_END - TIME_START) / INTERVAL_SPACING),     
-        'INRIX_SPACING': 300,      # seconds (5 min*60 sec/min); how often are measurements taken with inrix data
-        'INCONVENIENCE_COST': 2    # minutes
+        'INRIX_SPACING': 300      # seconds (5 min*60 sec/min); how often are measurements taken with inrix data
+        #'INCONVENIENCE_COST': 2    # minutes
     },
 
     # Speed parameters
@@ -133,13 +133,27 @@ config = {
         'TNC_WAIT': 2
     },
 
-    # Price parameters
+    # w = walk
+    # sc = scooter
+    # sc_tx = scooter transfer
+    # bs = bikeshare
+    # t = tnc
+    # t_wait = tnc waiting edge
+    # board = public transit boarding edge
+    # alight = public transit alighting edge
+    # rt = public transit route edge (in-vehicle)
+    # pb = personal bike
+    # z = carshare (zipcar)
+    # pv = personal vehicle
+    # park = parking edge
+
+    # Price parameters  # ppmin (price per minute); ppmile (price per mile); fixed (fixed price per trip)
     'price_params': {
         'w': {'ppmin': 0, 'ppmile': 0, 'fixed': 0},  
         'sc': {'ppmin': 0.39, 'ppmile': 0, 'fixed': 0},  
-        'sc_tx': {'ppmin': 0, 'ppmile': 0, 'fixed': 1},
+        'sc_tx': {'ppmin': 0, 'ppmile': 0, 'fixed': 1},  # price to transfer to a scooter
         'bs': {'ppmin': 25/200, 'ppmile': 0, 'fixed': 0},
-        't': {'ppmin': 0.19, 'ppmile': 1.12, 'fixed': 0}, 
+        't': {'ppmin': 0.19, 'ppmile': 1.12, 'fixed': 0},  
         't_wait': {'ppmin': 0, 'ppmile': 0, 'fixed': 3.03 + 2.64 + 1},  # fixed price is: base fare + "booking fee" + $1 minfare buffer
         'board': {'ppmin': 0, 'ppmile': 0, 'fixed': 2.75},
         'alight': {'ppmin': 0, 'ppmile': 0, 'fixed': 0},

@@ -91,9 +91,16 @@ config = {
 
             # Raw demographic files
             'block_group_shapefile': str(demographics_raw_data_folder / 'tl_2022_42_bg' / 'tl_2022_42_bg.shp'),
+            'naics_nem_xwalk':  str(demographics_raw_data_folder / 'naics-nem-crosswalk.xlsx'),
+            'nem_onet_xwalk': str(demographics_raw_data_folder / 'nem-onet-to-soc-crosswalk.xlsx'),
+            'onet_edu': str(demographics_raw_data_folder / 'onet_education.xlsx'),
+            'onet_categories': str(demographics_raw_data_folder /'onet_edu_categories.xlsx'),
+            'ipums': str(demographics_raw_data_folder / 'usa_00002.csv'),    
+            'lodes': str(demographics_raw_data_folder / 'pa_wac_S000_JT02_2021.csv'),
             
             # Processed demographic files
-            'block_group_centroids': str(demographics_processed_data_folder / 'block_group_centroids.csv')
+            'block_group_centroids': str(demographics_processed_data_folder / 'block_group_centroids.csv'),
+            'opportunity_jobs': str(demographics_processed_data_folder / 'opportunity_jobs.csv'),
         },
 
         # API details
@@ -202,13 +209,12 @@ config = {
     },
 
     'INCONVENIENCE_COST': 2,   # minutes, associated with transferring
-    'CIRCUITY_FACTOR': 1.2     # to adjust euclidean walking distance to network distance
+    'CIRCUITY_FACTOR': 1.2,     # to adjust euclidean walking distance to network distance
 
-    # 'demographics': {
-    #     'COUNTY_AVG_WAGE': 45939,  # in Allegheny County
-    #     'AC_AVG_COMMUTE': 26.6 * 60, # seconds
-    #     'TRAVEL_TIME_THRESHOLD': 30 * 60       # 30 min = 30*60 seconds
-    # }
+    'demographics': {
+        'COUNTY_AVG_WAGE': 45939,  # in Allegheny County
+        'AC_AVG_COMMUTE': 26.6 * 60, # seconds
+    }
 
 }
 

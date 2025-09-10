@@ -20,7 +20,7 @@ def main():
     # Build and save the supernetworks for analysis
     graphs_folder = Path(__file__).parent.absolute().resolve() / 'graphs'  # where to save the graphs
     #sn.build_supernetwork(config, config['supernetwork']['modes_included'], org_centroids_gdf, dst_centroids_gdf, graphs_folder / 'graph_sn.pkl') # all modes
-    #sn.build_supernetwork(config, ['pt'], org_centroids_gdf, dst_centroids_gdf, graphs_folder / 'graph_pt.pkl') # public transit
+    sn.build_supernetwork(config, ['pt'], org_centroids_gdf, dst_centroids_gdf, graphs_folder / 'graph_pt.pkl') # public transit
     sn.build_supernetwork(config, ['pt', 'bs'], org_centroids_gdf, dst_centroids_gdf, graphs_folder / 'graph_pt_bs.pkl') # public transit and bikeshare
 
 if __name__ == "__main__":

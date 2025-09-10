@@ -15,6 +15,8 @@ import os
 import pickle 
 import ckanapi
 
+from nomad import costs
+
 
 # https://autogis-site.readthedocs.io/en/latest/notebooks/L3/06_nearest-neighbor-faster.html
 def get_nearest(src_points, candidates, k_neighbors=1):
@@ -407,7 +409,38 @@ def nx_to_df(G):
 
     return df_G
 
-def build_mappings(G):
+def get_cost_array_dict(G_sn):
+    """
+    Extract dynamic edge costs from a supernetwork and return them as numpy arrays.
+    
+    Parameters
+    ----------
+    G_sn : networkx.Graph
+        Supernetwork graph.
+
+    Returns
+    -------
+    cost_arrays : dict[str, np.ndarray]
+        Dict of cost arrays for 'tt', 'rel', 'price', 'risk', 'disc'.
+    df_edges : pd.DataFrame
+        Edge info (source, target, mode_type).
+    """
+    df_tt, df_rel, df_price, df_risk, df_disc = costs.edges.dynamic.assign_edge_costs(G_sn)
+
+    NUM_INTERVALS = G_sn.config['time_factors']['NUM_INTERVALS']
+    interval_columns = [f'i{i}' for i in range(NUM_INTERVALS)]
+
+    cost_array_dict = {
+        'tt': df_tt[interval_columns].values.astype('float16'),
+        'rel': df_rel[interval_columns].values.astype('float16'),
+        'price': df_price[interval_columns].values.astype('float16'),
+        'risk': df_risk[interval_columns].values.astype('float16'),
+        'disc': df_disc[interval_columns].values.astype('float16'),
+    }
+
+    return cost_array_dict
+
+def build_mappings(G_sn):
     """
     Build node and edge ID mappings for the supernetwork.
     
@@ -426,7 +459,7 @@ def build_mappings(G):
     inv_linkID_map : dict[tuple, int]
         (source, target) -> edge index.
     """
-    df_edges = nx_to_df(G)
+    df_edges = nx_to_df(G_sn)
     node_set = sorted(set(df_edges['source']).union(df_edges['target']))
     nid_map = dict(zip(range(len(node_set)), node_set))
     inv_nid_map = {v: k for k, v in nid_map.items()}
@@ -436,3 +469,94 @@ def build_mappings(G):
     inv_linkID_map = {v: k for k, v in linkID_map.items()}
 
     return nid_map, inv_nid_map, linkID_map, inv_linkID_map
+
+
+# Utility functions to extract information from TDSP results
+def get_named_path(node_seq, nid_map):
+    """ Convert a sequence of node IDs to a sequence sequence of named nodes. """
+    int_path = [int(n) for n in node_seq]
+    path_named = [nid_map[n] for n in int_path]
+    return path_named
+
+def get_full_path_modes(named_path):
+    """
+    Extract and return a string of full mode names used in a path, always including 'walk'.
+    
+    Parameters:
+        named_path (list): A list of node identifiers, where each node starts with a mode abbreviation.
+    
+    Returns:
+        str: Slash-separated string of full mode names used in the path.
+    """
+    # Define mode abbreviation to full name mapping
+    mode_map = {
+        't': 'TNC',
+        'r': 'public transit',
+        'b': 'bikeshare',
+        's': 'scooter'
+    }
+
+    # Extract mode abbreviations from the named path
+    stripped_path = [node[0] for node in named_path]
+
+    # Include modes used more than once
+    modes_in_path = {
+        mode_map[m] for m in mode_map if stripped_path.count(m) > 1
+    }
+
+    # Always include walking
+    modes_in_path.add('walk')
+
+    # Return as a slash-separated string
+    return ' / '.join(sorted(modes_in_path))
+
+
+def convert_timestamp_to_hhmm(timestamp, start_hour, start_minute):
+    '''Convert timestamp to HH:MM representation.'''
+    # Calc minutes since start time
+    total_minutes = (timestamp // 6) + (start_hour * 60 + start_minute)
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    return f"{hours:01}:{minutes:02}"
+
+def get_path_attributes(link_seq, timestamp, cost_arrays, td_link_tt):
+    """ Get the path attributes (time, reliability, price, risk, discomfort) for a given path and departure time. """
+    price_total, risk_total, rel_total, tt_total, discomfort_total = 0, 0, 0, 0, 0
+    
+    t = int(timestamp)
+
+    for l in link_seq:  # the link seq
+        # look up how many time intervals it takes to cross the link
+        l = int(l) 
+        if t >= td_link_tt.shape[1] - 1:   
+            t = int(td_link_tt.shape[1] - 1 - 1)  # adjust the time if we reach the last interval
+        intervals_cross = td_link_tt[l, t]  
+
+        # # TODO: figure out how to add node costs more efficiently
+        # if idx > 0:
+        #     node_id = int(node_seq[idx])
+        #     in_link_id = int(link_seq[idx-1])
+        #     out_link_id = l
+        #     #if any(np.equal(nodecost_ids,[node_id, in_link_id, out_link_id]).all(1)):
+        #     if [node_id, in_link_id, out_link_id] in nodecost_ids:
+        #         nodecost = -2.75 
+        #     else:
+        #         nodecost = 0
+        # else:
+        #     nodecost = 0
+
+        price_link, risk_link, rel_link, tt_link, disc_link = cost_arrays['price'][l,t], cost_arrays['risk'][l,t], cost_arrays['rel'][l,t], cost_arrays['tt'][l,t], cost_arrays['disc'][l,t]  # (these arrays do not have a col for linkID)
+
+        #print(nid_map[node_in], nid_map[node_out], round(risk_link/60,3))
+        #cost_link = td_link_cost[l,t+1]  # cannot use td_link_cost b/c it only reflects most recently used betas     
+        # update time and cost totals
+        #print(nid_map[node_in], nid_map[node_out], 'price:', round(price_link,2), 'risk:', round(risk_link,2), 'rel:', round(rel_link/60,2), 'tt:',round(tt_link/60,2), 'discomf:',round(discomfort_link,2))
+        price_total += price_link #+ nodecost
+        risk_total += risk_link
+        rel_total += rel_link
+        tt_total += tt_link
+        discomfort_total += disc_link
+        #cost_total += cost_link
+        t = int(t + intervals_cross)  
+
+    return (tt_total, rel_total, price_total, risk_total, discomfort_total)

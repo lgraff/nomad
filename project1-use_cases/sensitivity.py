@@ -69,19 +69,19 @@ def main():
     tdsp_sensitivity_partial = functools.partial(tdsp_sensitivity, TDSP_FOLDER, orgID_list, dstID, num_rows_link_file, num_rows_node_file)
 
     # Run the TDSP sensitivity analysis in parallel
-    with mp.Pool(processes=mp.cpu_count()-16) as pool:
+    n_proc = mp.cpu_count() - 8 if mp.cpu_count() > 8 else 1
+    with mp.Pool(processes=n_proc) as pool:
         tdsp_data = pool.map(tdsp_sensitivity_partial, PARAM_LIST)
+    tdsp_data_lists = [item for sublist in tdsp_data for item in sublist]
+    
+    filepath = OUTPUT_CSV
+    file_exists = os.path.isfile(filepath)
 
     # Write results to csv
     header = ['org', 'dst', 'param', 'timestamp', 'node_seq', 'link_seq', 'gtc_tot', 'tt_tot']
-    filepath = OUTPUT_CSV
-    file_exists = os.path.isfile(filepath)
-    
-    tdsp_data_lists = [item for sublist in tdsp_data for item in sublist]
-    with open(filepath, 'a', newline='') as csvfile:
+    with open(filepath, 'w', newline='') as csvfile:
         csvwriter = csv.writer(csvfile)
-        if not file_exists:
-            csvwriter.writerow(header)  # Write header only if the file does not exist
+        csvwriter.writerow(header)  # Write header only if the file does not exist
         csvwriter.writerows(tdsp_data_lists)
 
 def tdsp_sensitivity(TDSP_FOLDER, orgID_list, dstID, num_rows_link_file, num_rows_node_file, param):

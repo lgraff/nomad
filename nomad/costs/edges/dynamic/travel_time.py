@@ -82,7 +82,7 @@ def assign_edge_travel_time(config, df_G):
     cols_keep = ['source','target','mode_type','length_m','frc','avg_tt_sec']   
     df_cost = pd.concat([df_pt_trav[cols_keep], df_alight[cols_keep], df_tz[cols_keep], df_twait[cols_keep], df_active[cols_keep]], axis=0).sort_values(by=['source','target'])
 
-    df_tt_ratio_ext = costs.edges.dynamic.extend_inrix_data(config, df_tt_ratio, 'tt_ratio', time_start, time_end, interval_spacing).sort_values(by=['frc','sec_after_midnight']).reset_index(drop=True)  # extend the data 
+    df_tt_ratio_ext = costs.edges.dynamic.extend_historical_travel_time_data(config, df_tt_ratio, 'tt_ratio', time_start, time_end, interval_spacing).sort_values(by=['frc','sec_after_midnight']).reset_index(drop=True)  # extend the data 
     
     # Get time-dependent travel time. Take 7am free flow travel time (called 'avg_tt_sec') and multiply by the travel time ratio relative to 7am
     # e.g. if 7am travel time is 10 sec and 7:05am ratio is 1.1, then 7:05am travel time is 10 & 1.1 = 11 sec

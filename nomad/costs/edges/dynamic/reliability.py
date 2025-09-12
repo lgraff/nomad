@@ -11,7 +11,7 @@ def assign_edge_reliability(config, df_tt_dynamic):
     interval_spacing = config['time_factors']['INTERVAL_SPACING']
 
     df_rel_ratio = pd.read_csv(config['paths']['data']['reliability_ratio'])
-    df_rel_ratio_ext = costs.edges.dynamic.extend_inrix_data(config, df_rel_ratio, 'rel_ratio', time_start, time_end, interval_spacing).sort_values(by=['frc','sec_after_midnight']).reset_index(drop=True) 
+    df_rel_ratio_ext = costs.edges.dynamic.extend_historical_travel_time_data(config, df_rel_ratio, 'rel_ratio', time_start, time_end, interval_spacing).sort_values(by=['frc','sec_after_midnight']).reset_index(drop=True) 
 
     # Calculate by mode
     # Start with those who have a constant reliability factor (not dependent on time of day)

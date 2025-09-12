@@ -31,8 +31,8 @@ def day2day_variation(df, frc, hour, minute):
     return([frc, hour, minute, reliability_ratio])
 
 
-def inrix_to_ratios(inrix_travel_time_inpath, inrix_roadID_inpath, start_time, end_time, tt_ratio_outpath, rel_ratio_outpath):
-    '''Read inrix data from csv files, where each row is unique by roadID and timestamp.
+def historical_obs_to_ratios(historical_tt_obs_spacing, historical_obs_inpath, historical_obs_roadID_inpath, start_time, end_time, tt_ratio_outpath, rel_ratio_outpath):
+    '''Read historical travel time data from csv files, where each row is unique by roadID and timestamp.
        --Only consider timestamps between start_time and end_time
        --Estimate a "reliability ratio" on the frc level, which is the ratio of maximum (avg across roads) to minimum (avg across roads) travel time across days in the sample.
        --Estimate "travel time ratio" on the frc level, which is the ratio of travel time (avg across roads) at a given timestamp to travel time (avg across roads) at 7am (assumed free flow).
@@ -50,8 +50,8 @@ def inrix_to_ratios(inrix_travel_time_inpath, inrix_roadID_inpath, start_time, e
     # df_merge = df.merge(df_xd, how='inner', left_on='xd_id', right_on='xd')
 
     # read data
-    df = pd.read_csv(inrix_travel_time_inpath)
-    df_xd = pd.read_csv(inrix_roadID_inpath)
+    df = pd.read_csv(historical_obs_inpath)
+    df_xd = pd.read_csv(historical_obs_roadID_inpath)
     # merge tt with id data
     df_merge = df.merge(df_xd, how='inner', left_on='xd_id', right_on='xd')
 
@@ -62,7 +62,7 @@ def inrix_to_ratios(inrix_travel_time_inpath, inrix_roadID_inpath, start_time, e
     for frc in df_merge.frc.unique():
         df_intraday_frc = intraday_variation(df_merge, frc, start_time, end_time)  # hour | minute | mean_travel_time (for selected frc)
         for hr in df_intraday_frc.hour.unique().astype('int'):
-            for min in range(0,60,5):  # inrix data is every 5 min
+            for min in range(0, 60, historical_tt_obs_spacing / 60):  # historical_tt_obs_spacing is provided in the config file in seconds -> convert to minutes here
                 # get the base case travel time associated with the 7am; assumption is that 7am is free flow speed
                 condition = (df_intraday_frc['hour'] == start_time) & (df_intraday_frc['minute'] == 0)
                 base_time = df_intraday_frc[condition]['travel_time_seconds'].values[0]

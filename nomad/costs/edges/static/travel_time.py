@@ -6,7 +6,7 @@ def assign_edge_travel_time(df_G, hr, minute, config):
     
     data_path = config['paths']['data']
     
-    # Read in inrix travel time ratio data 
+    # Read in travel time ratio data from historical observations
     df_tt_ratio = pd.read_csv(data_path['travel_time_ratio'])
     
     # Extract results for for the given hour/min time specifically

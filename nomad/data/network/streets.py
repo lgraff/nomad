@@ -72,7 +72,7 @@ def process_street_centerlines(studyarea_filepath, streets_shapefile_path, crash
     streets_clip.to_crs(crs='epsg:32128', inplace=True)
     streets_clip['length_meters'] = streets_clip.geometry.length
 
-    # map road class to frc for compatibility with inrix
+    # map road class to frc for compatibility with historical travel time data
     FCC_roadclass_dict = {'A31':'secondary', 'A41':'local', 'A33':'secondary', 'A32':'secondary', 'A61':'local', 'A42':'local', 'A74':'local',
                 'A63':'local', 'A62':'local', 'A21':'highway', 'A11':'highway', 'A64':'local', 'A99':'local', 'A71':0, 'A72':0, 'A73':0, 'H10':0}
     roadclass_frc_map = {'highway':2, 'secondary':3, 'local':4, 0:0}

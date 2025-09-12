@@ -46,7 +46,10 @@ def process_data(config):
     print('PT headway and traversal files created')
 
     # Construct travel time and reliability ratio dataframes
-    historical_travel_time.inrix_to_ratios(data_paths['inrix_travel_time'], data_paths['inrix_roadID'], int(TIME_START / 3600), int(TIME_END / 3600), data_paths['travel_time_ratio'], data_paths['reliability_ratio'])
+    historical_travel_time.historical_obs_to_ratios(config['time_factors']['HISTORICAL_TRAVEL_TIME_OBSERVATION_SPACING'], 
+                                                    data_paths['historical_obs_travel_time'], data_paths['historical_obs_roadID'], 
+                                                    int(TIME_START / 3600), int(TIME_END / 3600), 
+                                                    data_paths['travel_time_ratio'], data_paths['reliability_ratio'])
     print('Historical travel time data processed') 
 
     # Convert streets shapefile into two graphs (driving and biking), save them to disk

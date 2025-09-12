@@ -67,8 +67,8 @@ config = {
             'crash_sample': str(network_raw_data_folder / 'crashes_sample.csv'),
             'parking_in': str(network_raw_data_folder / 'ParkingMetersPaymentPoints.csv'),
             'GTFS': str(network_raw_data_folder / 'GTFS'),
-            'inrix_travel_time': str(network_raw_data_folder / 'Allegheny_sample_xd_part1' / 'Allegheny_sample_xd_part1.csv'),
-            'inrix_roadID': str(network_raw_data_folder / 'Allegheny_sample_xd_part1' / 'XD_Identification.csv'),
+            'historical_obs_travel_time': str(network_raw_data_folder / 'Allegheny_sample_xd_part1' / 'Allegheny_sample_xd_part1.csv'),
+            'historical_obs_roadID': str(network_raw_data_folder / 'Allegheny_sample_xd_part1' / 'XD_Identification.csv'),
             'streets_shapefile': str(network_raw_data_folder / 'alleghenycounty_streetcenterlines202305' / 'AlleghenyCounty_StreetCenterlines202304.shp'),
             'bike_map_folder': str(network_raw_data_folder / 'bike-map-2019'),
             'bikeshare_station': str(network_raw_data_folder / 'pogoh-station-locations-2022.csv'),
@@ -122,7 +122,7 @@ config = {
         'TIME_END': 9 * 3600,      # (must be in the form of seconds_after_midnight)
         'INTERVAL_SPACING': 10,    # sec
         #'NUM_INTERVALS': int((TIME_END - TIME_START) / INTERVAL_SPACING),     
-        'INRIX_SPACING': 300      # seconds (5 min*60 sec/min); how often are measurements taken with inrix data
+        'HISTORICAL_TRAVEL_TIME_OBSERVATION_SPACING': 300      # seconds (5 min*60 sec/min); how often are observations recorded in the historical travel time data
         #'INCONVENIENCE_COST': 2    # minutes
     },
 

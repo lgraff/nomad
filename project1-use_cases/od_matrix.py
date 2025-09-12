@@ -1,103 +1,125 @@
-"""Get time-dependent OD matrix by calling TDSP API for different destinations in parallel."""
+"""Compute time-dependent OD matrices for multiple supernetworks using a single VOT."""
 
+import os
+import sys
 from pathlib import Path
-import pickle
-import sys, os
-import multiprocessing as mp
-import functools
 import csv
+import json
+import multiprocessing as mp
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
-from nomad import utils
 from nomad import shortest_path as sp
-
-def get_nid_map(G):
-    df_edge_info = utils.nx_to_df(G)
-    node_set = sorted(list(set(df_edge_info['source']).union(set(df_edge_info['target']))))
-    nid_map = dict(zip(range(len(node_set)), node_set))
-    return nid_map
+from nomad import utils
+import macposts
 
 def get_dstIDs(G, inv_nid_map):
-    all_dsts = [n for n in G.graph.nodes if n.startswith('dst')]
+    all_dsts = [n for n in G.graph.nodes if str(n).startswith('dst')]
     dstID_list = [inv_nid_map[dst_name] for dst_name in all_dsts]
     return dstID_list
 
 def get_orgIDs(G, inv_nid_map):
-    all_orgs = [n for n in G.graph.nodes if n.startswith('org')]
+    all_orgs = [n for n in G.graph.nodes if str(n).startswith('org')]
     orgID_list = [inv_nid_map[org_name] for org_name in all_orgs]
     return orgID_list
 
-def initializer(tdsp_api, vot):
-    """Initialize global variables."""
-    global tdsp_api_global
-    global vot_global
-    tdsp_api_global = tdsp_api
-    vot_global = vot
 
-def process_dsts(orgID_list, dstID_list, timestamp_window):
-    tdsp_data = []  # list to store all tdsp data
+# ---- Destination chunking utility ----
+def chunk_list(lst, chunk_size):
+    """Yield successive chunk_size-sized chunks from lst."""
+    for i in range(0, len(lst), chunk_size):
+        yield lst[i:i + chunk_size]
+
+# ---- Worker function for TDSP OD Matrix Calculation  ----
+def tdsp_dst_chunk_worker(args):
+
+    G, tdsp_folder, BETAS, timestamp_window, org_geo_list, dst_geo_chunk = args
+
+    print(f"Processing chunk with {len(dst_geo_chunk)} destinations...")
+
+    vot = int(BETAS['tt'] * 3600)
+    MAX_INTERVAL = G.config['time_factors']['NUM_INTERVALS']
+    LINK_COST_FILE = f"td_link_cost_vot{vot}"  # e.g., vot10 → td_link_cost_vot10
+
+    # Build mappings
+    _, inv_nid_map, _, _ = utils.build_mappings(G)
+
+    # Define origin and destination IDs
+    orgID_list = [inv_nid_map[org_geo] for org_geo in org_geo_list]
+    dstID_list = [inv_nid_map[dst_geo] for dst_geo in dst_geo_chunk]
+
+    # Get row counts for TDSP config
+    with open(tdsp_folder / LINK_COST_FILE, 'r') as file:
+        next(file)
+        num_rows_link_file = sum(1 for _ in file)
+    with open(tdsp_folder / 'td_node_cost', 'r') as file:
+        next(file)
+        num_rows_node_file = sum(1 for _ in file)
+    sp.write_config(tdsp_folder, 'graph', num_rows_link_file, num_rows_node_file)
+
+    # Initialize TDSP API
+    tdsp_api = macposts.tdsp_api()
+    tdsp_api.initialize(str(tdsp_folder), MAX_INTERVAL, num_rows_link_file, num_rows_node_file)
+    tdsp_api.read_td_cost_txt(str(tdsp_folder), 'td_link_tt', 'td_node_tt', LINK_COST_FILE, 'td_node_cost')
+
+    # Compute OD matrix
+    results = []
     for dstID in dstID_list:
-        tdsp_api_global.build_tdsp_tree(dstID)
-
+        tdsp_api.build_tdsp_tree(dstID)
         for orgID in orgID_list:
-            for timestamp in range(timestamp_window[0], timestamp_window[1], 6):  # 7:30-8:00am  180-361
-                tdsp_arr = tdsp_api_global.extract_tdsp(orgID, timestamp)
-                node_seq = list(tdsp_arr[:,0])
-                link_seq = list(tdsp_arr[:-1,1])
-                gtc_total = tdsp_arr[0,2]
-                tt_total = tdsp_arr[0,3]
-                tdsp_data.append([orgID, dstID, vot_global, timestamp, node_seq, link_seq, gtc_total, tt_total])
+            for timestamp in range(*timestamp_window):
+                tdsp_arr = tdsp_api.extract_tdsp(orgID, timestamp)
+                node_seq = json.dumps(list(tdsp_arr[:, 0]))
+                link_seq = json.dumps(list(tdsp_arr[:-1, 1]))
+                gtc_total = tdsp_arr[0, 2]
+                tt_total = tdsp_arr[0, 3]
+                results.append([orgID, dstID, vot, timestamp, node_seq, link_seq, gtc_total, tt_total])
 
-    print(dstID_list, 'complete')
-    return tdsp_data
+    return results
 
-def write_data(data, header, filepath_out):
-    '''Write data to .csv file.'''
-    with open(filepath_out, 'w') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(header) # header
-        csvwriter.writerows(data)
-
-def calc_td_od_matrix(G, tdsp_folder, vot, BETAS, td_link_cost_filename, filepath_out):
-    tdsp_api = sp.prepare_tdsp_api(G.config, G, BETAS, tdsp_folder, td_link_cost_filename)
-    nid_map = get_nid_map(G)
-    inv_nid_map = dict(zip(nid_map.values(), nid_map.keys()))
-    orgID_list = get_orgIDs(G, inv_nid_map)
-    dstID_list = get_dstIDs(G, inv_nid_map)
-
-    chunk_size = 10
-    dst_chunks = [dstID_list[i:i+chunk_size] for i in range(0, len(dstID_list), chunk_size)]  
-    
-    process_dsts_partial = functools.partial(process_dsts, orgID_list, timestamp_window=(180,361))
-
-    with mp.Pool(initializer=initializer, initargs=(tdsp_api, vot), processes=mp.cpu_count()-1) as pool:
-        tdsp_data = pool.map(process_dsts_partial, dst_chunks)
-
-    header = ['org', 'dst', 'vot', 'timestamp', 'node_seq', 'link_seq', 'gtc_tot', 'tt_tot']
-    tdsp_data_lists = [item for sublist in tdsp_data for item in sublist]
-    write_data(tdsp_data_lists, header, filepath_out)
-
+# ---- Main Execution ----
 if __name__ == "__main__":
     # Parameters
-    vot = 10  
-    # beta weighting factors
+    vot = 10
     BETAS = {
-        'tt': vot/3600,   # vot / hour
-        'rel': 10/3600,   # $ / hour
-        'x': 1,           # $ / $
-        'risk': 20,       # $ / crash / day
-        'disc': 0}        # $ / discomfort-weighted-km
-    
-    mode_list = ['pt', 'pt_bs']
-    for m in mode_list:
-        # Read in the supernetwork as an object
-        graph_path = Path().resolve() / 'graphs' / f'graph_{m}.pkl'
-        with open(graph_path, 'rb') as inp:
-            G = pickle.load(inp)
+        'tt': vot / 3600,
+        'rel': 10 / 3600,
+        'x': 1,
+        'risk': 20,
+        'disc': 0
+    }
 
-        tdsp_folder = Path().resolve() / 'experiment_output' / f'tdsp_files_{m}'  # Folder that stores TDSP files for each of the graphs
-        filepath = tdsp_folder / f"od_matrix_{m}.csv"
-        calc_td_od_matrix(G, tdsp_folder, vot, BETAS, 'td_link_cost_' + str(vot), filepath)  # Calculate the time-dep OD matrix
-    
-        # except:
-        #     print('Error processing mode ', m)
+    mode_list = ['pt', 'pt_bs']
+    timestamp_window = (180, 361)  # 7:30–8:00am
+
+    chunk_size = 10
+    n_proc = mp.cpu_count() - 2 if mp.cpu_count() > 2 else 1
+
+    for m in mode_list:
+        print(f"Processing mode: {m}")
+        G = utils.load_graph(Path().resolve() / 'graphs' / f'graph_{m}.pkl')
+        
+        # Prepare TDSP files once
+        tdsp_folder = Path().resolve() / 'experiment_output' / f'tdsp_files_{m}'
+        sp.prepare_tdsp_files(G, BETAS, tdsp_folder, f"td_link_cost_vot{vot}")
+
+        output_csv = tdsp_folder / f"od_matrix_{m}.csv"
+
+        org_geo_list = [n for n in G.graph.nodes if str(n).startswith('org')]
+        dst_geo_list = [n for n in G.graph.nodes if str(n).startswith('dst')]
+        dst_chunks = list(chunk_list(dst_geo_list, chunk_size))
+
+        args_list = [(G, tdsp_folder, BETAS, timestamp_window, org_geo_list, dst_chunk) for dst_chunk in dst_chunks]
+
+        with mp.Pool(processes=n_proc) as pool:
+            all_results = pool.map(tdsp_dst_chunk_worker, args_list)
+
+        tdsp_data_lists = [item for sublist in all_results for item in sublist]
+
+        # Write to CSV
+        header = ['org', 'dst', 'param', 'timestamp', 'node_seq', 'link_seq', 'gtc_tot', 'tt_tot']
+        with open(output_csv, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(header)
+            writer.writerows(tdsp_data_lists)
+
+        print(f"Finished writing OD matrix for mode: {m}\n")

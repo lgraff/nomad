@@ -1,4 +1,6 @@
 """ This module contains functions to prepare input files for MAC-POSTS time-dependent shortest path (TDSP) API."""
+import os
+
 import numpy as np
 import macposts
 
@@ -115,12 +117,17 @@ def prepare_gtc_file(config, tdsp_folder, filename, linkID_arr, gtc_arr):
     f.writelines(log)
     f.close()
 
-def prepare_tdsp_api(config, G, BETAS, tdsp_folder, link_cost_filename):
-    """ Prepare the TDSP API by creating necessary input files and initializing the API."""
-    
-    '''Inputs: graph, beta parameters, tdsp_folder to store data, link cost filename.
-       Output: tdsp_api, mapping dict from node ID (key) to node name (value)'''
+def prepare_tdsp_files(G, BETAS, tdsp_folder, link_cost_filename):
+    """ Prepare the necessary input TDSP API files.
+    This includes:
+    - graph
+    - td_link_tt
+    - td_node_tt
+    - td_node_cost
+    - link cost file (named based on any special parameters, e.g., vot)
+    """
     # Parameters
+    config = G.config
     NUM_INTERVALS = config['time_factors']['NUM_INTERVALS'] 
     interval_columns = [f'i{i}' for i in range(NUM_INTERVALS)]
 
@@ -157,11 +164,11 @@ def prepare_tdsp_api(config, G, BETAS, tdsp_folder, link_cost_filename):
     num_rows_node_file = len(df_node_cost_dynamic)
     write_config(tdsp_folder, 'graph', num_rows_link_file, num_rows_node_file)
 
-    # Invoke TDSP api from mac-posts
-    tdsp_api = macposts.tdsp_api()
-    tdsp_api.initialize(str(tdsp_folder), NUM_INTERVALS, len(df_G), len(df_node_cost_dynamic))
-    tdsp_api.read_td_cost_txt(str(tdsp_folder), 'td_link_tt', 'td_node_cost', link_cost_filename, 'td_node_cost')
+    # # Invoke TDSP api from mac-posts
+    # tdsp_api = macposts.tdsp_api()
+    # tdsp_api.initialize(str(tdsp_folder), NUM_INTERVALS, len(df_G), len(df_node_cost_dynamic))
+    # tdsp_api.read_td_cost_txt(str(tdsp_folder), 'td_link_tt', 'td_node_cost', link_cost_filename, 'td_node_cost')
 
-    print('TDSP api has successfully read the files')
+    # print('TDSP api has successfully read the files')
 
-    return tdsp_api
+    # return tdsp_api
